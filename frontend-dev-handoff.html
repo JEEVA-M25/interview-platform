@@ -1,0 +1,306 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <title>CareerVerse AI Frontend Developer Handoff</title>
+    <style>
+      @page {
+        size: A4;
+        margin: 18mm;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        color: #172033;
+        background: #ffffff;
+        font-family: Arial, Helvetica, sans-serif;
+        font-size: 11pt;
+        line-height: 1.45;
+      }
+
+      h1,
+      h2,
+      h3,
+      p {
+        margin-top: 0;
+      }
+
+      h1 {
+        margin-bottom: 8px;
+        color: #102033;
+        font-size: 28pt;
+        line-height: 1.05;
+      }
+
+      h2 {
+        margin: 28px 0 10px;
+        color: #0f5fc2;
+        font-size: 16pt;
+      }
+
+      h3 {
+        margin: 16px 0 6px;
+        color: #26364f;
+        font-size: 12pt;
+      }
+
+      ul {
+        margin: 8px 0 0 18px;
+        padding: 0;
+      }
+
+      li + li {
+        margin-top: 4px;
+      }
+
+      code {
+        padding: 1px 4px;
+        border-radius: 4px;
+        background: #edf2f7;
+        color: #102033;
+        font-family: Consolas, "Courier New", monospace;
+        font-size: 10pt;
+      }
+
+      .cover {
+        padding: 34px;
+        border: 1px solid #dce5f2;
+        border-radius: 8px;
+        background: #f7fbff;
+      }
+
+      .eyebrow {
+        margin-bottom: 8px;
+        color: #0f5fc2;
+        font-size: 9pt;
+        font-weight: 700;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+      }
+
+      .summary {
+        max-width: 620px;
+        color: #4b5d78;
+        font-size: 12pt;
+      }
+
+      .grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 12px;
+        margin-top: 18px;
+      }
+
+      .box {
+        min-height: 72px;
+        padding: 12px;
+        border: 1px solid #dce5f2;
+        border-radius: 8px;
+        background: #ffffff;
+      }
+
+      .box strong {
+        display: block;
+        margin-bottom: 4px;
+        color: #102033;
+      }
+
+      .flow {
+        padding-left: 18px;
+      }
+
+      .flow li {
+        margin-bottom: 8px;
+      }
+
+      .table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-top: 10px;
+      }
+
+      .table th,
+      .table td {
+        padding: 8px;
+        border: 1px solid #dce5f2;
+        text-align: left;
+        vertical-align: top;
+      }
+
+      .table th {
+        background: #f0f5fb;
+        color: #26364f;
+      }
+
+      .page-break {
+        break-before: page;
+      }
+    </style>
+  </head>
+  <body>
+    <section class="cover">
+      <p class="eyebrow">Frontend handoff</p>
+      <h1>CareerVerse AI</h1>
+      <p class="summary">
+        React/Vite frontend for a student and admin career-readiness platform.
+        The UI supports student registration, role-based login, profile management,
+        resume ATS scoring, skill-gap analysis, and admin student monitoring.
+      </p>
+      <div class="grid">
+        <div class="box">
+          <strong>Stack</strong>
+          React 19, Vite 8, plain CSS, browser Fetch API.
+        </div>
+        <div class="box">
+          <strong>API base</strong>
+          <code>VITE_API_BASE_URL</code>, falling back to <code>http://localhost:8080</code>.
+        </div>
+        <div class="box">
+          <strong>Session storage</strong>
+          JWT session persisted in <code>localStorage</code> as <code>careerverse-session</code>.
+        </div>
+        <div class="box">
+          <strong>Primary routes</strong>
+          Single-page app with conditional student/admin dashboard rendering.
+        </div>
+      </div>
+    </section>
+
+    <h2>Application Structure</h2>
+    <table class="table">
+      <thead>
+        <tr>
+          <th>File</th>
+          <th>Responsibility</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><code>src/App.jsx</code></td>
+          <td>Owns session state, login/logout, landing page, and dashboard selection by role.</td>
+        </tr>
+        <tr>
+          <td><code>src/services/api.js</code></td>
+          <td>Central fetch helper for JSON and multipart requests with optional bearer token headers.</td>
+        </tr>
+        <tr>
+          <td><code>src/components/RegisterPanel.jsx</code></td>
+          <td>Student registration form posting to <code>/api/auth/register/student</code>.</td>
+        </tr>
+        <tr>
+          <td><code>src/components/LoginPanel.jsx</code></td>
+          <td>Student/admin login form posting to <code>/api/auth/login</code> and validating role.</td>
+        </tr>
+        <tr>
+          <td><code>src/components/StudentDashboard.jsx</code></td>
+          <td>Loads and updates student profile through <code>/api/student/profile</code>.</td>
+        </tr>
+        <tr>
+          <td><code>src/components/AdminDashboard.jsx</code></td>
+          <td>Loads registered students from <code>/api/admin/students</code>.</td>
+        </tr>
+        <tr>
+          <td><code>src/components/AtsAnalyzer.jsx</code></td>
+          <td>Uploads resume files to <code>/api/ai/ats-score</code> and displays ATS results.</td>
+        </tr>
+        <tr>
+          <td><code>src/components/SkillGapAnalyzer.jsx</code></td>
+          <td>Uploads resume plus job description to <code>/api/ai/skill-gap</code>.</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h2>User Flows</h2>
+    <ol class="flow">
+      <li>
+        Visitor lands on the auth screen, creates a student account, or signs in with the
+        student/admin login panels.
+      </li>
+      <li>
+        On successful login, the backend returns a session object with role, name, and token.
+        The frontend stores it in <code>localStorage</code>.
+      </li>
+      <li>
+        Student users see profile editing, ATS analysis, and JD skill-gap analysis.
+      </li>
+      <li>
+        Admin users see the registered student table plus the same analysis modules.
+      </li>
+      <li>
+        Logout clears the stored session and returns the user to the landing/auth screen.
+      </li>
+    </ol>
+
+    <h2 class="page-break">Backend Contract</h2>
+    <table class="table">
+      <thead>
+        <tr>
+          <th>Endpoint</th>
+          <th>Method</th>
+          <th>Payload</th>
+          <th>Expected response</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><code>/api/auth/register/student</code></td>
+          <td>POST</td>
+          <td>JSON student fields</td>
+          <td>Registration message and email.</td>
+        </tr>
+        <tr>
+          <td><code>/api/auth/login</code></td>
+          <td>POST</td>
+          <td>JSON email and password</td>
+          <td>Session with role, full name, and JWT token.</td>
+        </tr>
+        <tr>
+          <td><code>/api/student/profile</code></td>
+          <td>GET/PUT</td>
+          <td>Bearer token; PUT sends JSON profile</td>
+          <td>Student profile object.</td>
+        </tr>
+        <tr>
+          <td><code>/api/admin/students</code></td>
+          <td>GET</td>
+          <td>Bearer admin token</td>
+          <td>Array of student records.</td>
+        </tr>
+        <tr>
+          <td><code>/api/ai/ats-score</code></td>
+          <td>POST</td>
+          <td>Multipart <code>resume</code></td>
+          <td>Score, summary, strengths, improvements, and keywords.</td>
+        </tr>
+        <tr>
+          <td><code>/api/ai/skill-gap</code></td>
+          <td>POST</td>
+          <td>Multipart <code>resume</code> and <code>jobDescription</code></td>
+          <td>Match score, summary, matched skills, missing skills, and action plan.</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h2>Runbook</h2>
+    <ul>
+      <li>Install frontend dependencies with <code>npm install</code> inside <code>frontend</code>.</li>
+      <li>Run the development server with <code>npm run dev</code>.</li>
+      <li>Set <code>VITE_API_BASE_URL</code> when the backend is not running on <code>localhost:8080</code>.</li>
+      <li>Build production assets with <code>npm run build</code>.</li>
+      <li>Lint with <code>npm run lint</code>.</li>
+    </ul>
+
+    <h2>Known Notes</h2>
+    <ul>
+      <li>The UI is currently a single-page app without a router.</li>
+      <li>Demo credentials are prefilled in the login panels for student and admin testing.</li>
+      <li>File inputs accept PDF, DOC, DOCX, PPT, PPTX, and TXT files.</li>
+      <li>Errors from failed API requests are shown directly from the backend response text.</li>
+      <li>The styling is maintained in <code>src/App.css</code> with responsive breakpoints at 900px and 700px.</li>
+    </ul>
+  </body>
+</html>
