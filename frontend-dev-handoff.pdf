@@ -1,0 +1,130 @@
+%PDF-1.4
+1 0 obj
+<< /Type /Catalog /Pages 2 0 R >>
+endobj
+2 0 obj
+<< /Type /Pages /Kids [3 0 R] /Count 1 >>
+endobj
+3 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 4 0 R >> >> /Contents 5 0 R >>
+endobj
+4 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>
+endobj
+5 0 obj
+<< /Length 2444 >>
+stream
+BT
+/F1 10 Tf
+/F1 20 Tf
+72 760 Td (Frontend API Handoff) Tj
+-72 -28 Td
+/F1 11 Tf
+72 732 Td (Project: CareerVerse AI / interview-platform) Tj
+-72 -18 Td
+/F1 14 Tf
+72 714 Td (Issue) Tj
+-72 -18 Td
+/F1 10 Tf
+72 696 Td (The frontend was calling http://localhost:8081, causing net::ERR_CONNECTION_REFUSED.) Tj
+-72 -13 Td
+/F1 10 Tf
+72 683 Td (The Spring Boot backend is configured to run on port 8080.) Tj
+-72 -20 Td
+/F1 14 Tf
+72 663 Td (Frontend Change) Tj
+-72 -18 Td
+/F1 10 Tf
+72 645 Td (File: frontend/src/services/api.js) Tj
+-72 -13 Td
+/F1 10 Tf
+72 632 Td (API_BASE_URL fallback is now: http://localhost:8080) Tj
+-72 -13 Td
+/F1 10 Tf
+72 619 Td (The Vite override still works: VITE_API_BASE_URL) Tj
+-72 -20 Td
+/F1 14 Tf
+72 599 Td (How To Start Backend) Tj
+-72 -18 Td
+/F1 10 Tf
+72 581 Td (Requirement: Java 21 and MySQL running locally.) Tj
+-72 -13 Td
+/F1 10 Tf
+72 568 Td (From the repository root, run:) Tj
+-72 -13 Td
+/F1 10 Tf
+72 555 Td (cd backend/CareerVerse-AI) Tj
+-72 -13 Td
+/F1 10 Tf
+72 542 Td (mvnw.cmd spring-boot:run    \(Windows\)) Tj
+-72 -13 Td
+/F1 10 Tf
+72 529 Td (./mvnw spring-boot:run      \(Mac/Linux\)) Tj
+-72 -13 Td
+/F1 10 Tf
+72 516 Td (Backend URL after startup: http://localhost:8080) Tj
+-72 -20 Td
+/F1 14 Tf
+72 496 Td (Backend Config) Tj
+-72 -18 Td
+/F1 10 Tf
+72 478 Td (File: backend/CareerVerse-AI/src/main/resources/application.properties) Tj
+-72 -13 Td
+/F1 10 Tf
+72 465 Td (server.port=8080) Tj
+-72 -13 Td
+/F1 10 Tf
+72 452 Td (Database URL: jdbc:mysql://localhost:3306/AIInterview?createDatabaseIfNotExist=true) Tj
+-72 -13 Td
+/F1 10 Tf
+72 439 Td (Set DB_PASSWORD in the environment before starting the backend.) Tj
+-72 -13 Td
+/F1 10 Tf
+72 426 Td (Optional env vars: GEMINI_API_KEY, AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, JWT_SECRET.) Tj
+-72 -20 Td
+/F1 14 Tf
+72 406 Td (How To Start Frontend) Tj
+-72 -18 Td
+/F1 10 Tf
+72 388 Td (cd frontend) Tj
+-72 -13 Td
+/F1 10 Tf
+72 375 Td (npm install) Tj
+-72 -13 Td
+/F1 10 Tf
+72 362 Td (npm run dev) Tj
+-72 -13 Td
+/F1 10 Tf
+72 349 Td (If a .env file is used, set: VITE_API_BASE_URL=http://localhost:8080) Tj
+-72 -20 Td
+/F1 14 Tf
+72 329 Td (Affected API Calls) Tj
+-72 -18 Td
+/F1 10 Tf
+72 311 Td (POST /api/auth/login, POST /api/auth/register/student) Tj
+-72 -13 Td
+/F1 10 Tf
+72 298 Td (GET /api/student/profile, PUT /api/student/profile) Tj
+-72 -20 Td
+/F1 14 Tf
+72 278 Td (Verification) Tj
+-72 -18 Td
+/F1 10 Tf
+72 260 Td (Frontend build check passed with npm run build.) Tj
+-72 -13 Td
+ET
+endstream
+endobj
+xref
+0 6
+0000000000 65535 f 
+0000000009 00000 n 
+0000000058 00000 n 
+0000000115 00000 n 
+0000000241 00000 n 
+0000000311 00000 n 
+trailer
+<< /Size 6 /Root 1 0 R >>
+startxref
+2807
+%%EOF
