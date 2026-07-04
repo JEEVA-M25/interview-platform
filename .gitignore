@@ -1,0 +1,17 @@
+# React
+frontend/node_modules/
+frontend/dist/
+
+# Spring Boot
+backend/target/
+backend/.mvn/
+*.class
+*.log
+
+# IDE
+.vscode/
+.idea/
+
+# Secrets
+.env
+backend/src/main/resources/application.properties
