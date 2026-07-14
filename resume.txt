@@ -1,0 +1,4 @@
+John Doe
+Software Engineer
+Skills: React, JavaScript, HTML, CSS, Java, Spring Boot, MySQL.
+Experience: 2 years of developing web applications using React and Spring Boot.

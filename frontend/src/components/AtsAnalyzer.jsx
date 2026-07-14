@@ -5,6 +5,7 @@ import EmptyState from "./ui/EmptyState.jsx";
 import PageHeader from "./ui/PageHeader.jsx";
 import SectionHeader from "./ui/SectionHeader.jsx";
 import { postForm } from "../services/api.js";
+import LoadingDistractor, { Spinner } from "./ui/LoadingDistractor.jsx";
 
 function AtsAnalyzer({ token }) {
   const [resumeFile, setResumeFile] = useState(null);
@@ -65,10 +66,17 @@ function AtsAnalyzer({ token }) {
             </label>
             <button
               type="submit"
-              className="rounded-2xl bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm disabled:cursor-not-allowed disabled:bg-slate-300"
+              className="rounded-2xl bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm disabled:cursor-not-allowed disabled:bg-slate-300 flex items-center justify-center gap-2"
               disabled={status === "loading" || !resumeFile}
             >
-              {status === "loading" ? "Analyzing..." : "Analyze ATS score"}
+              {status === "loading" ? (
+                <>
+                  <Spinner size="h-4 w-4" color="text-white border-t-white" />
+                  <span>Analyzing ATS score...</span>
+                </>
+              ) : (
+                "Analyze ATS score"
+              )}
             </button>
             {error && <p className="text-sm text-red-600">{error}</p>}
           </form>
@@ -83,7 +91,14 @@ function AtsAnalyzer({ token }) {
             title="ATS report"
             description="Insights will appear here after the backend returns analysis data."
           />
-          {result ? (
+          {status === "loading" ? (
+            <LoadingDistractor
+              type="ats"
+              title="Gemini is analyzing your resume"
+              subtitle="Scrutinizing qualifications & formatting"
+              estimatedDuration={12000}
+            />
+          ) : result ? (
             <div className="space-y-4">
               <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
                 <p className="text-sm font-medium text-slate-500">ATS score</p>

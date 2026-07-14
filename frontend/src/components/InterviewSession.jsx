@@ -6,6 +6,7 @@ import {
 } from "lucide-react";
 import { interviewApi } from "../services/api.js";
 import { FilesetResolver, FaceLandmarker } from "@mediapipe/tasks-vision";
+import LoadingDistractor, { Spinner } from "./ui/LoadingDistractor.jsx";
 
 // ── Speech Recognition ────────────────────────────────────────────────────
 const SpeechRecognition =
@@ -580,10 +581,13 @@ function InterviewSession({ session: initialSession, token, onFinished }) {
               <button
                 onClick={handleFinish}
                 disabled={phase === "finishing"}
-                className="rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-600 hover:bg-slate-100 transition-colors disabled:opacity-50"
+                className="rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-600 hover:bg-slate-100 transition-colors disabled:opacity-50 flex items-center justify-center gap-1.5"
               >
                 {phase === "finishing" ? (
-                  <span className="flex items-center gap-1.5"><Loader2 className="h-3 w-3 animate-spin" /> Ending...</span>
+                  <>
+                    <Spinner size="h-3 w-3" color="text-orange-500 border-t-orange-500 animate-spin" />
+                    <span>Ending...</span>
+                  </>
                 ) : "End Interview"}
               </button>
             </div>
@@ -705,10 +709,14 @@ function InterviewSession({ session: initialSession, token, onFinished }) {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm shadow-slate-200/60 text-center space-y-4"
+              className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm shadow-slate-200/60"
             >
-              <Loader2 className="h-8 w-8 animate-spin text-orange-500 mx-auto" />
-              <p className="font-semibold text-slate-700">Submitting your response...</p>
+              <LoadingDistractor
+                type="submitting"
+                title="Submitting your response"
+                subtitle="Analyzing answer transcript & coherence..."
+                estimatedDuration={6000}
+              />
             </motion.div>
           )}
 
@@ -716,11 +724,14 @@ function InterviewSession({ session: initialSession, token, onFinished }) {
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
-              className="rounded-2xl border border-orange-200 bg-gradient-to-br from-orange-50 to-amber-50 p-8 text-center shadow-sm"
+              className="rounded-2xl border border-orange-200 bg-white p-6 shadow-sm"
             >
-              <Loader2 className="h-8 w-8 animate-spin text-orange-500 mx-auto mb-3" />
-              <p className="font-semibold text-slate-800">Generating final report...</p>
-              <p className="text-sm text-slate-500 mt-1">AI is calculating your scoring and proctoring metrics.</p>
+              <LoadingDistractor
+                type="finishing"
+                title="Generating final report"
+                subtitle="Evaluating scores, proctoring metrics, and performance recommendations..."
+                estimatedDuration={20000}
+              />
             </motion.div>
           )}
         </AnimatePresence>
