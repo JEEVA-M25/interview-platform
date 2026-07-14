@@ -7,6 +7,7 @@ import Header from "./components/Header.jsx";
 import LoginPanel from "./components/LoginPanel.jsx";
 import RegisterPanel from "./components/RegisterPanel.jsx";
 import StudentDashboard from "./components/StudentDashboard.jsx";
+import LandingPage from "./components/LandingPage.jsx";
 
 function DecorativePanel() {
   return (
@@ -40,8 +41,8 @@ function DecorativePanel() {
   );
 }
 
-function AuthPage({ onLogin }) {
-  const [view, setView] = useState("login");
+function AuthPage({ onLogin, onBack, defaultView = "login" }) {
+  const [view, setView] = useState(defaultView);
   const isLogin = view === "login";
 
   // slide: decorative moves left→right on login, right→left on register
@@ -52,7 +53,17 @@ function AuthPage({ onLogin }) {
   };
 
   return (
-    <div className="h-screen w-screen flex items-center justify-center bg-gradient-to-br from-amber-50 via-orange-50 to-yellow-50">
+    <div className="h-screen w-screen flex items-center justify-center bg-gradient-to-br from-amber-50 via-orange-50 to-yellow-50 relative">
+      {/* Back to Home Button */}
+      {onBack && (
+        <button
+          onClick={onBack}
+          className="absolute top-6 left-6 z-40 flex items-center gap-1.5 px-4.5 py-2 rounded-full bg-white/90 hover:bg-white text-slate-700 hover:text-orange-500 text-sm font-semibold border border-orange-100 hover:border-orange-200 shadow-sm transition-all hover:scale-105 active:scale-95 cursor-pointer"
+        >
+          ← Back to Home
+        </button>
+      )}
+
       {/* Floating card */}
       <div className="relative flex w-[1100px] h-[720px] rounded-3xl shadow-2xl shadow-orange-200/60 overflow-hidden border border-orange-100">
 
@@ -90,7 +101,7 @@ function AuthPage({ onLogin }) {
             transform: isLogin ? "translateX(0%)" : "translateX(100%)",
           }}
         >
-          <LoginPanel onLogin={onLogin} />
+          <LoginPanel onLogin={onLogin} onSwitchToRegister={() => setView("register")} />
         </div>
 
         {/* Register form — starts off-screen left, slides in on register */}
@@ -102,7 +113,7 @@ function AuthPage({ onLogin }) {
             transform: isLogin ? "translateX(-100%)" : "translateX(0%)",
           }}
         >
-          <RegisterPanel />
+          <RegisterPanel onSwitchToLogin={() => setView("login")} />
         </div>
 
       </div>
@@ -116,20 +127,42 @@ function App() {
     return saved ? JSON.parse(saved) : null;
   });
   const [activeView, setActiveView] = useState("dashboard");
+  const [showAuth, setShowAuth] = useState(false);
+  const [authInitialView, setAuthInitialView] = useState("login");
 
   function handleLogin(session) {
     setUser(session);
     setActiveView("dashboard");
+    setShowAuth(false);
     localStorage.setItem("careerverse-session", JSON.stringify(session));
   }
 
   function handleLogout() {
     setUser(null);
     setActiveView("dashboard");
+    setShowAuth(false);
     localStorage.removeItem("careerverse-session");
   }
 
-  if (!user) return <AuthPage onLogin={handleLogin} />;
+  if (!user) {
+    if (!showAuth) {
+      return (
+        <LandingPage
+          onAuth={(view) => {
+            setAuthInitialView(view);
+            setShowAuth(true);
+          }}
+        />
+      );
+    }
+    return (
+      <AuthPage
+        onLogin={handleLogin}
+        onBack={() => setShowAuth(false)}
+        defaultView={authInitialView}
+      />
+    );
+  }
 
   return (
     <div className="min-h-screen bg-slate-100" id="top">
