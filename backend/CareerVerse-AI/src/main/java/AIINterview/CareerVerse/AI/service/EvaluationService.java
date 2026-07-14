@@ -107,7 +107,7 @@ public class EvaluationService {
             String raw = callGeminiRaw(prompt);
             if (raw == null) return null;
 
-            JsonNode node = objectMapper.readTree(raw);
+            JsonNode node = objectMapper.readTree(stripMarkdownFence(raw));
             return new AnswerEvaluation(
                     node.path("score").asInt(5),
                     node.path("feedback").asText(""),
@@ -166,7 +166,7 @@ public class EvaluationService {
             String raw = callGeminiRaw(prompt);
             if (raw == null) return null;
 
-            JsonNode node = objectMapper.readTree(raw);
+            JsonNode node = objectMapper.readTree(stripMarkdownFence(raw));
             int tech = node.path("technical").asInt(50);
             int comm = node.path("communication").asInt(50);
             int prob = node.path("problemSolving").asInt(50);
@@ -221,7 +221,7 @@ public class EvaluationService {
                     .path("text").asText(null);
 
         } catch (Exception e) {
-            log.error("Gemini call failed: {}", e.getMessage());
+            log.error("Gemini call failed: {}", e.getMessage(), e);
             return null;
         }
     }
@@ -252,5 +252,14 @@ public class EvaluationService {
                 List.of("Completed the interview session.", "Attempted all questions.", "Showed willingness to engage."),
                 List.of("Enable Gemini API for detailed feedback.", "Practice explaining concepts clearly.", "Work on technical depth.")
         );
+    }
+
+    private String stripMarkdownFence(String text) {
+        if (text == null) return "";
+        return text
+                .replaceFirst("^```json\\s*", "")
+                .replaceFirst("^```\\s*", "")
+                .replaceFirst("\\s*```$", "")
+                .trim();
     }
 }

@@ -54,6 +54,8 @@ public class ReportPdfService {
             drawDimensions(w, report);
             w.moveDown(20);
             drawStrengthsWeaknesses(w, report);
+            w.moveDown(20);
+            drawIntegritySummary(w, report);
 
             // ── Page 2+: per-question breakdown ──────────────────────────
             if (report.questionResults() != null && !report.questionResults().isEmpty()) {
@@ -65,6 +67,24 @@ public class ReportPdfService {
                     if (w.y < 140) w.newPage();
                     drawQuestionBlock(w, q, idx++);
                     w.moveDown(10);
+                }
+            }
+
+            // ── Page 3+: proctor logs ───────────────────────────────────
+            if (report.proctorLogs() != null && !report.proctorLogs().isEmpty()) {
+                w.newPage();
+                drawSectionTitle(w, "Proctoring Activity Log");
+                w.moveDown(12);
+                for (InterviewReportResponse.ProctorLogDto log : report.proctorLogs()) {
+                    if (w.y < 100) w.newPage();
+                    String line = "[" + log.timestamp() + "] [" + log.type() + "] " + log.description();
+                    for (String wrappedLine : wrap(line, REGULAR, 9, CONTENT_W)) {
+                        w.text(wrappedLine, REGULAR, 9, SLATE_9, MARGIN + 8);
+                        w.moveDown(12);
+                    }
+                    w.moveDown(4);
+                    w.fillRect(MARGIN, w.y, CONTENT_W, 0.5f, SLATE_2);
+                    w.moveDown(8);
                 }
             }
 
@@ -353,5 +373,37 @@ public class ReportPdfService {
         }
 
         void close() throws IOException { if (cs != null) cs.close(); }
+    }
+
+    private void drawIntegritySummary(Writer w, InterviewReportResponse report) throws IOException {
+        if (w.y < 220) w.newPage();
+        drawSectionTitle(w, "Interview Integrity & Proctoring Summary");
+        w.moveDown(10);
+
+        float colW = (CONTENT_W - 20) / 3f;
+
+        // Row 1
+        float y1 = w.y;
+        drawIntegrityItem(w, "Integrity Score", (report.integrityScore() != null ? report.integrityScore() + "%" : "100%"), MARGIN, y1);
+        drawIntegrityItem(w, "Warnings Count", (report.warningsCount() != null ? String.valueOf(report.warningsCount()) : "0"), MARGIN + colW + 10, y1);
+        drawIntegrityItem(w, "Eye Contact", (report.eyeContactPercentage() != null ? report.eyeContactPercentage() + "%" : "100%"), MARGIN + 2 * colW + 20, y1);
+        w.moveDown(36);
+
+        // Row 2
+        float y2 = w.y;
+        drawIntegrityItem(w, "Face Present", (report.facePresentPercentage() != null ? report.facePresentPercentage() + "%" : "100%"), MARGIN, y2);
+        drawIntegrityItem(w, "Multiple Faces", (report.multipleFacesDetected() != null ? report.multipleFacesDetected() : "No"), MARGIN + colW + 10, y2);
+        drawIntegrityItem(w, "Tab Switches", (report.tabSwitches() != null ? String.valueOf(report.tabSwitches()) : "0"), MARGIN + 2 * colW + 20, y2);
+        w.moveDown(36);
+
+        // Row 3
+        float y3 = w.y;
+        drawIntegrityItem(w, "Phone Detection", (report.phoneChecked() != null ? report.phoneChecked() : "Not Checked"), MARGIN, y3);
+        w.moveDown(30);
+    }
+
+    private void drawIntegrityItem(Writer w, String label, String value, float x, float itemY) throws IOException {
+        w.textAt(label, BOLD, 8, SLATE_6, x, itemY);
+        w.textAt(value, BOLD, 12, SLATE_9, x, itemY - 14);
     }
 }

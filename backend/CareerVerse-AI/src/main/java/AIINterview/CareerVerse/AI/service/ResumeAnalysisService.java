@@ -7,6 +7,8 @@ import AIINterview.CareerVerse.AI.dto.SkillGapResponse;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
@@ -22,6 +24,8 @@ import java.util.Set;
 
 @Service
 public class ResumeAnalysisService {
+
+    private static final Logger log = LoggerFactory.getLogger(ResumeAnalysisService.class);
 
     private static final String GEMINI_URL =
             "https://generativelanguage.googleapis.com/v1beta/models/%s:generateContent?key=%s";
@@ -126,6 +130,12 @@ public class ResumeAnalysisService {
                     .body(String.class);
 
             JsonNode root = objectMapper.readTree(response);
+            
+            if (root.has("error")) {
+                log.error("Gemini API error in resume analysis: {}", root.path("error").path("message").asText());
+                return null;
+            }
+
             String text = root.path("candidates")
                     .path(0)
                     .path("content")
@@ -134,8 +144,14 @@ public class ResumeAnalysisService {
                     .path("text")
                     .asText();
 
+            if (text == null || text.isBlank()) {
+                log.warn("Gemini returned empty text response for resume analysis");
+                return null;
+            }
+
             return objectMapper.readValue(stripMarkdownFence(text), responseType);
-        } catch (RuntimeException | JsonProcessingException ex) {
+        } catch (Exception ex) {
+            log.error("Gemini call failed for resume analysis: {}", ex.getMessage(), ex);
             return null;
         }
     }

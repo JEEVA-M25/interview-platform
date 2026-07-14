@@ -1,7 +1,7 @@
 import { motion } from "framer-motion";
 import {
   Award, BookOpen, Brain, ChevronDown, ChevronUp,
-  Download, Loader2, MessageSquare, Mic, RotateCcw, Star, TrendingUp,
+  Download, Loader2, MessageSquare, Mic, RotateCcw, Star, TrendingUp, ShieldAlert, AlertTriangle
 } from "lucide-react";
 import { useState } from "react";
 import PageHeader from "./ui/PageHeader.jsx";
@@ -155,6 +155,19 @@ function InterviewReport({ report, sessionId, token, onNewInterview, onBack }) {
     : report.overallScore >= 60 ? "from-amber-500 to-yellow-500"
     : "from-red-500 to-orange-500";
 
+  const integrityScore = report.integrityScore !== null ? report.integrityScore : 100;
+  const warningsCount = report.warningsCount !== null ? report.warningsCount : 0;
+  const eyeContactPercentage = report.eyeContactPercentage !== null ? report.eyeContactPercentage : 100;
+  const facePresentPercentage = report.facePresentPercentage !== null ? report.facePresentPercentage : 100;
+  const multipleFacesDetected = report.multipleFacesDetected || "No";
+  const phoneChecked = report.phoneChecked || "Not Checked";
+  const tabSwitches = report.tabSwitches !== null ? report.tabSwitches : 0;
+
+  const integrityColor =
+    integrityScore >= 80 ? "#10b981"
+    : integrityScore >= 60 ? "#f59e0b"
+    : "#ef4444";
+
   const dimensions = [
     { label: "Technical",       score: report.technicalScore,      icon: Brain,         color: "orange"  },
     { label: "Communication",   score: report.communicationScore,  icon: MessageSquare, color: "blue"    },
@@ -197,54 +210,121 @@ function InterviewReport({ report, sessionId, token, onNewInterview, onBack }) {
         ]}
       />
 
-      {/* Overall score + recommendation */}
-      <motion.div
-        initial={{ opacity: 0, y: 16 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm shadow-slate-200/60"
-      >
-        <div className="flex flex-col sm:flex-row items-center gap-6">
-          <div className="flex flex-col items-center gap-2 shrink-0">
-            <div className="relative w-28 h-28">
-              <svg width={112} height={112} className="-rotate-90">
-                <circle cx={56} cy={56} r={48} fill="none" stroke="#e2e8f0" strokeWidth={10} />
-                <motion.circle
-                  cx={56} cy={56} r={48}
-                  fill="none"
-                  stroke={report.overallScore >= 80 ? "#10b981" : report.overallScore >= 60 ? "#f59e0b" : "#ef4444"}
-                  strokeWidth={10}
-                  strokeLinecap="round"
-                  strokeDasharray={2 * Math.PI * 48}
-                  initial={{ strokeDashoffset: 2 * Math.PI * 48 }}
-                  animate={{ strokeDashoffset: 2 * Math.PI * 48 - (report.overallScore / 100) * 2 * Math.PI * 48 }}
-                  transition={{ duration: 1.2, ease: "easeOut" }}
-                />
-              </svg>
-              <div className="absolute inset-0 flex flex-col items-center justify-center">
-                <span className="text-3xl font-bold text-slate-900">{report.overallScore}</span>
-                <span className="text-xs text-slate-400">/ 100</span>
+      {/* Double scoring layout: Overall Score + Integrity Score */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        {/* Overall score card */}
+        <motion.div
+          initial={{ opacity: 0, y: 16 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm shadow-slate-200/60"
+        >
+          <div className="flex flex-col sm:flex-row items-center gap-6">
+            <div className="flex flex-col items-center gap-2 shrink-0">
+              <div className="relative w-28 h-28">
+                <svg width={112} height={112} className="-rotate-90">
+                  <circle cx={56} cy={56} r={48} fill="none" stroke="#e2e8f0" strokeWidth={10} />
+                  <motion.circle
+                    cx={56} cy={56} r={48}
+                    fill="none"
+                    stroke={report.overallScore >= 80 ? "#10b981" : report.overallScore >= 60 ? "#f59e0b" : "#ef4444"}
+                    strokeWidth={10}
+                    strokeLinecap="round"
+                    strokeDasharray={2 * Math.PI * 48}
+                    initial={{ strokeDashoffset: 2 * Math.PI * 48 }}
+                    animate={{ strokeDashoffset: 2 * Math.PI * 48 - (report.overallScore / 100) * 2 * Math.PI * 48 }}
+                    transition={{ duration: 1.2, ease: "easeOut" }}
+                  />
+                </svg>
+                <div className="absolute inset-0 flex flex-col items-center justify-center">
+                  <span className="text-3xl font-bold text-slate-900">{report.overallScore}</span>
+                  <span className="text-xs text-slate-400">/ 100</span>
+                </div>
+              </div>
+              <p className="text-sm font-semibold text-slate-600">Interview Score</p>
+            </div>
+
+            <div className="flex-1 text-center sm:text-left">
+              <div className={`inline-flex items-center gap-2 rounded-full bg-gradient-to-r ${recommendationColor} px-4 py-1.5 mb-3`}>
+                <Award className="h-4 w-4 text-white" />
+                <span className="text-sm font-bold text-white">{report.overallRecommendation || "Keep Practicing"}</span>
+              </div>
+              <p className="text-slate-600 text-sm leading-relaxed">
+                You completed {report.questionResults?.filter((q) => q.state === "ANSWERED").length ?? 0} of{" "}
+                {report.questionResults?.length ?? 0} questions.{" "}
+                {report.overallScore >= 80
+                  ? "Excellent performance — you're interview ready!"
+                  : report.overallScore >= 60
+                  ? "Good effort. Focus on the weak areas highlighted below."
+                  : "Keep practicing. Review the feedback for each question carefully."}
+              </p>
+            </div>
+          </div>
+        </motion.div>
+
+        {/* Integrity score card */}
+        <motion.div
+          initial={{ opacity: 0, y: 16 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.05 }}
+          className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm shadow-slate-200/60"
+        >
+          <div className="flex flex-col sm:flex-row items-center gap-6">
+            <div className="flex flex-col items-center gap-2 shrink-0">
+              <div className="relative w-28 h-28">
+                <svg width={112} height={112} className="-rotate-90">
+                  <circle cx={56} cy={56} r={48} fill="none" stroke="#e2e8f0" strokeWidth={10} />
+                  <motion.circle
+                    cx={56} cy={56} r={48}
+                    fill="none"
+                    stroke={integrityColor}
+                    strokeWidth={10}
+                    strokeLinecap="round"
+                    strokeDasharray={2 * Math.PI * 48}
+                    initial={{ strokeDashoffset: 2 * Math.PI * 48 }}
+                    animate={{ strokeDashoffset: 2 * Math.PI * 48 - (integrityScore / 100) * 2 * Math.PI * 48 }}
+                    transition={{ duration: 1.2, ease: "easeOut" }}
+                  />
+                </svg>
+                <div className="absolute inset-0 flex flex-col items-center justify-center">
+                  <span className="text-3xl font-bold text-slate-900">{integrityScore}</span>
+                  <span className="text-xs text-slate-400">/ 100</span>
+                </div>
+              </div>
+              <p className="text-sm font-semibold text-slate-600">Integrity Score</p>
+            </div>
+
+            <div className="flex-1 grid grid-cols-2 gap-x-4 gap-y-1.5 text-xs text-slate-600">
+              <div className="col-span-2 pb-1.5 border-b border-slate-100 flex items-center justify-between mb-1">
+                <div className="flex items-center gap-1.5 font-bold text-slate-800">
+                  <ShieldAlert className="h-4 w-4 text-orange-500" />
+                  <span>Proctoring Details</span>
+                </div>
+                <span className="font-semibold text-slate-500">Warnings: {warningsCount}</span>
+              </div>
+              <div className="flex justify-between">
+                <span>Eye Contact:</span>
+                <span className="font-bold text-slate-800">{eyeContactPercentage}%</span>
+              </div>
+              <div className="flex justify-between">
+                <span>Face Present:</span>
+                <span className="font-bold text-slate-800">{facePresentPercentage}%</span>
+              </div>
+              <div className="flex justify-between">
+                <span>Multiple Faces:</span>
+                <span className="font-bold text-slate-800">{multipleFacesDetected}</span>
+              </div>
+              <div className="flex justify-between">
+                <span>Phone Checked:</span>
+                <span className="font-bold text-slate-800">{phoneChecked}</span>
+              </div>
+              <div className="flex justify-between col-span-2 pt-1 border-t border-slate-100">
+                <span>Workspace Tab Switches:</span>
+                <span className="font-bold text-slate-800">{tabSwitches}</span>
               </div>
             </div>
-            <p className="text-sm font-semibold text-slate-600">Overall Score</p>
           </div>
-
-          <div className="flex-1 text-center sm:text-left">
-            <div className={`inline-flex items-center gap-2 rounded-full bg-gradient-to-r ${recommendationColor} px-4 py-1.5 mb-3`}>
-              <Award className="h-4 w-4 text-white" />
-              <span className="text-sm font-bold text-white">{report.overallRecommendation || "Keep Practicing"}</span>
-            </div>
-            <p className="text-slate-600 text-sm leading-relaxed">
-              You completed {report.questionResults?.filter((q) => q.state === "ANSWERED").length ?? 0} of{" "}
-              {report.questionResults?.length ?? 0} questions.{" "}
-              {report.overallScore >= 80
-                ? "Excellent performance — you're interview ready!"
-                : report.overallScore >= 60
-                ? "Good effort. Focus on the weak areas highlighted below."
-                : "Keep practicing. Review the feedback for each question carefully."}
-            </p>
-          </div>
-        </div>
-      </motion.div>
+        </motion.div>
+      </div>
 
       {/* Overall strengths & weaknesses */}
       {(report.overallStrengths?.length > 0 || report.overallWeaknesses?.length > 0) && (
@@ -319,6 +399,40 @@ function InterviewReport({ report, sessionId, token, onNewInterview, onBack }) {
           ))}
         </div>
       </motion.div>
+
+      {/* Proctoring Log Grid */}
+      {report.proctorLogs && report.proctorLogs.length > 0 && (
+        <motion.div
+          initial={{ opacity: 0, y: 16 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.2 }}
+          className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm shadow-slate-200/60"
+        >
+          <div className="mb-5 flex items-center gap-2">
+            <ShieldAlert className="h-5 w-5 text-red-500" />
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-widest text-red-500 mb-0.5">Audit Log</p>
+              <h2 className="text-lg font-bold text-slate-800">Proctoring Activity Log</h2>
+            </div>
+          </div>
+          <div className="overflow-hidden rounded-xl border border-slate-200">
+            <div className="grid grid-cols-[100px_160px_1fr] bg-slate-50 border-b border-slate-200 px-4 py-2.5 text-xs font-bold text-slate-700 uppercase tracking-wider">
+              <span>Time</span>
+              <span>Violation Type</span>
+              <span>Details</span>
+            </div>
+            <div className="divide-y divide-slate-200">
+              {report.proctorLogs.map((log, i) => (
+                <div key={i} className="grid grid-cols-[100px_160px_1fr] px-4 py-3 text-xs text-slate-600 font-mono items-center hover:bg-slate-50/50">
+                  <span className="text-slate-400">{log.timestamp}</span>
+                  <span className="font-semibold text-red-600">{log.type}</span>
+                  <span className="text-slate-700">{log.description}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </motion.div>
+      )}
     </div>
   );
 }

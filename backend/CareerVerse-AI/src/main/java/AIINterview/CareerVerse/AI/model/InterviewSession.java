@@ -2,6 +2,8 @@ package AIINterview.CareerVerse.AI.model;
 
 import jakarta.persistence.*;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
 
 @Entity
 @Table(name = "interview_sessions")
@@ -47,6 +49,18 @@ public class InterviewSession {
 
     @Column(columnDefinition = "TEXT")
     private String overallRecommendation;
+
+    // Integrity & Proctoring summary statistics
+    private Integer integrityScore;
+    private Integer warningsCount;
+    private Integer eyeContactPercentage;
+    private Integer facePresentPercentage;
+    private String multipleFacesDetected;
+    private String phoneChecked;
+    private Integer tabSwitches;
+
+    @OneToMany(mappedBy = "session", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
+    private List<ProctorLogEntry> proctorLogs = new ArrayList<>();
 
     public enum SessionStatus {
         CREATED, IN_PROGRESS, COMPLETED
@@ -101,4 +115,28 @@ public class InterviewSession {
 
     public String getOverallRecommendation() { return overallRecommendation; }
     public void setOverallRecommendation(String overallRecommendation) { this.overallRecommendation = overallRecommendation; }
+
+    public Integer getIntegrityScore() { return integrityScore; }
+    public void setIntegrityScore(Integer integrityScore) { this.integrityScore = integrityScore; }
+
+    public Integer getWarningsCount() { return warningsCount; }
+    public void setWarningsCount(Integer warningsCount) { this.warningsCount = warningsCount; }
+
+    public Integer getEyeContactPercentage() { return eyeContactPercentage; }
+    public void setEyeContactPercentage(Integer eyeContactPercentage) { this.eyeContactPercentage = eyeContactPercentage; }
+
+    public Integer getFacePresentPercentage() { return facePresentPercentage; }
+    public void setFacePresentPercentage(Integer facePresentPercentage) { this.facePresentPercentage = facePresentPercentage; }
+
+    public String getMultipleFacesDetected() { return multipleFacesDetected; }
+    public void setMultipleFacesDetected(String multipleFacesDetected) { this.multipleFacesDetected = multipleFacesDetected; }
+
+    public String getPhoneChecked() { return phoneChecked; }
+    public void setPhoneChecked(String phoneChecked) { this.phoneChecked = phoneChecked; }
+
+    public Integer getTabSwitches() { return tabSwitches; }
+    public void setTabSwitches(Integer tabSwitches) { this.tabSwitches = tabSwitches; }
+
+    public List<ProctorLogEntry> getProctorLogs() { return proctorLogs; }
+    public void setProctorLogs(List<ProctorLogEntry> proctorLogs) { this.proctorLogs = proctorLogs; }
 }

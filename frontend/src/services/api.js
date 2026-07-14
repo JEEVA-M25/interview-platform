@@ -114,10 +114,28 @@ export const interviewApi = {
   },
 
   /** POST /api/interview/sessions/{id}/end */
-  endSession(sessionId, token) {
+  endSession(sessionId, integrityPayload, token) {
+    let body = null
+    let authTok = token
+    if (typeof integrityPayload === 'string') {
+      authTok = integrityPayload
+    } else if (integrityPayload) {
+      body = JSON.stringify(integrityPayload)
+    }
+
     return request(`/api/interview/sessions/${sessionId}/end`, {
       method: 'POST',
-      headers: authHeaders(token, null),
+      headers: authHeaders(authTok, body ? 'application/json' : null),
+      body: body,
+    })
+  },
+
+  /** POST /api/interview/sessions/{id}/proctor-logs */
+  submitProctorLog(sessionId, type, description, token) {
+    return request(`/api/interview/sessions/${sessionId}/proctor-logs`, {
+      method: 'POST',
+      headers: authHeaders(token, 'application/json'),
+      body: JSON.stringify({ type, description }),
     })
   },
 

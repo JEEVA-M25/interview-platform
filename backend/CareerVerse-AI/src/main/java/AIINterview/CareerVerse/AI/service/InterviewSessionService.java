@@ -7,9 +7,11 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
 
 @Service
 public class InterviewSessionService {
@@ -127,19 +129,18 @@ public class InterviewSessionService {
             responseTimeSeconds = (int) ChronoUnit.SECONDS.between(shownAt, submittedAt);
         }
 
-        // Evaluate via Gemini
-        EvaluationService.AnswerEvaluation eval =
-                evaluationService.evaluate(question.getQuestion(), request.transcript());
-
-        InterviewAnswer answer = new InterviewAnswer();
-        answer.setQuestion(question);
+        // Save raw answer to database (Evaluation is deferred to the end of the session to speed up transition)
+        InterviewAnswer answer = question.getAnswer();
+        if (answer == null) {
+            answer = new InterviewAnswer();
+            answer.setQuestion(question);
+        }
         answer.setRawTranscript(request.transcript());
-        answer.setScore(eval.score());
-        answer.setFeedback(eval.feedback());
-        answer.setStrengths(eval.strengths());
-        answer.setWeaknesses(eval.weaknesses());
-        answer.setPromptTokens(eval.promptTokens());
-        answer.setCompletionTokens(eval.completionTokens());
+        answer.setEditedTranscript(null);
+        answer.setScore(0);
+        answer.setFeedback("");
+        answer.setStrengths("");
+        answer.setWeaknesses("");
         answerRepo.save(answer);
 
         // Update question state and timing
@@ -160,11 +161,8 @@ public class InterviewSessionService {
         session.setCurrentQuestionIndex((int) answeredCount);
         sessionRepo.save(session);
 
-        // Decide follow-up
-        String followUpText = null;
-        if (eval.score() < 7) {
-            followUpText = questionGenerator.generateFollowUp(question.getQuestion(), request.transcript());
-        }
+        // Decide follow-up directly from the answer (Single Gemini call)
+        String followUpText = questionGenerator.generateFollowUp(question.getQuestion(), request.transcript());
 
         QuestionDto followUpDto = null;
         if (followUpText != null) {
@@ -186,12 +184,12 @@ public class InterviewSessionService {
 
         return new EvaluationResponse(
                 answer.getId(),
-                eval.score(),
-                eval.feedback(),
-                eval.strengths(),
-                eval.weaknesses(),
+                0,
+                "",
+                "",
+                "",
                 responseTimeSeconds,
-                eval.interviewerComment(),
+                "Understood. Let's move to the next question.",
                 followUpDto != null,
                 followUpDto
         );
@@ -238,10 +236,69 @@ public class InterviewSessionService {
     }
 
     @Transactional
-    public InterviewReportResponse endSession(String userEmail, Long sessionId) {
+    public void addProctorLog(String userEmail, Long sessionId, ProctorLogRequest request) {
+        InterviewSession session = getSessionForUser(sessionId, userEmail);
+        ProctorLogEntry entry = new ProctorLogEntry();
+        entry.setSession(session);
+        entry.setTimestamp(LocalDateTime.now());
+        entry.setType(request.type());
+        entry.setDescription(request.description());
+        session.getProctorLogs().add(entry);
+        sessionRepo.save(session);
+    }
+
+    @Transactional
+    public InterviewReportResponse endSession(String userEmail, Long sessionId, EndSessionRequest integrityRequest) {
         InterviewSession session = getSessionForUser(sessionId, userEmail);
 
         List<InterviewQuestion> questions = questionRepo.findBySessionIdOrderByOrderNoAsc(sessionId);
+
+        // Evaluate all pending answers in parallel using CompletableFuture to make question submission instant
+        class EvalTask {
+            InterviewAnswer answer;
+            String questionText;
+            String transcript;
+            EvaluationService.AnswerEvaluation result;
+
+            EvalTask(InterviewAnswer answer, String questionText, String transcript) {
+                this.answer = answer;
+                this.questionText = questionText;
+                this.transcript = transcript;
+            }
+        }
+
+        List<EvalTask> tasks = new ArrayList<>();
+        for (InterviewQuestion q : questions) {
+            InterviewAnswer a = q.getAnswer();
+            if (q.getState() == InterviewQuestion.QuestionState.ANSWERED && a != null) {
+                if (a.getScore() == null || a.getScore() == 0) {
+                    tasks.add(new EvalTask(a, q.getQuestion(), a.getEffectiveTranscript()));
+                }
+            }
+        }
+
+        if (!tasks.isEmpty()) {
+            List<CompletableFuture<Void>> futures = new ArrayList<>();
+            for (EvalTask task : tasks) {
+                futures.add(CompletableFuture.runAsync(() -> {
+                    task.result = evaluationService.evaluate(task.questionText, task.transcript);
+                }));
+            }
+            CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).join();
+
+            // Save results sequentially on the main thread
+            for (EvalTask task : tasks) {
+                if (task.result != null) {
+                    task.answer.setScore(task.result.score());
+                    task.answer.setFeedback(task.result.feedback());
+                    task.answer.setStrengths(task.result.strengths());
+                    task.answer.setWeaknesses(task.result.weaknesses());
+                    task.answer.setPromptTokens(task.result.promptTokens());
+                    task.answer.setCompletionTokens(task.result.completionTokens());
+                    answerRepo.save(task.answer);
+                }
+            }
+        }
 
         List<String> questionTexts = new ArrayList<>();
         List<String> answerTexts = new ArrayList<>();
@@ -280,13 +337,38 @@ public class InterviewSessionService {
         session.setOverallRecommendation(scores.recommendation());
         session.setStatus(InterviewSession.SessionStatus.COMPLETED);
         session.setEndedAt(LocalDateTime.now());
+
+        if (integrityRequest != null) {
+            session.setIntegrityScore(integrityRequest.integrityScore());
+            session.setWarningsCount(integrityRequest.warningsCount());
+            session.setEyeContactPercentage(integrityRequest.eyeContactPercentage());
+            session.setFacePresentPercentage(integrityRequest.facePresentPercentage());
+            session.setMultipleFacesDetected(integrityRequest.multipleFacesDetected());
+            session.setPhoneChecked(integrityRequest.phoneChecked());
+            session.setTabSwitches(integrityRequest.tabSwitches());
+        }
         sessionRepo.save(session);
+
+        List<InterviewReportResponse.ProctorLogDto> proctorLogDtos = new ArrayList<>();
+        if (session.getProctorLogs() != null) {
+            DateTimeFormatter timeFormatter = DateTimeFormatter.ofPattern("HH:mm:ss");
+            for (ProctorLogEntry log : session.getProctorLogs()) {
+                proctorLogDtos.add(new InterviewReportResponse.ProctorLogDto(
+                        log.getTimestamp().format(timeFormatter),
+                        log.getType(),
+                        log.getDescription()
+                ));
+            }
+        }
 
         return new InterviewReportResponse(
                 session.getId(), session.getRole(), session.getDifficulty(),
                 scores.overall(), scores.technical(), scores.communication(),
                 scores.problemSolving(), scores.grammar(), scores.confidence(),
-                scores.recommendation(), scores.overallStrengths(), scores.overallWeaknesses(), results
+                scores.recommendation(), scores.overallStrengths(), scores.overallWeaknesses(), results,
+                session.getIntegrityScore(), session.getWarningsCount(), session.getEyeContactPercentage(),
+                session.getFacePresentPercentage(), session.getMultipleFacesDetected(), session.getPhoneChecked(),
+                session.getTabSwitches(), proctorLogDtos
         );
     }
 
@@ -324,12 +406,27 @@ public class InterviewSessionService {
                     );
                 }).toList();
 
+        List<InterviewReportResponse.ProctorLogDto> proctorLogDtos = new ArrayList<>();
+        if (session.getProctorLogs() != null) {
+            DateTimeFormatter timeFormatter = DateTimeFormatter.ofPattern("HH:mm:ss");
+            for (ProctorLogEntry log : session.getProctorLogs()) {
+                proctorLogDtos.add(new InterviewReportResponse.ProctorLogDto(
+                        log.getTimestamp().format(timeFormatter),
+                        log.getType(),
+                        log.getDescription()
+                ));
+            }
+        }
+
         return new InterviewReportResponse(
                 session.getId(), session.getRole(), session.getDifficulty(),
                 orZero(session.getOverallScore()), orZero(session.getTechnicalScore()),
                 orZero(session.getCommunicationScore()), orZero(session.getProblemSolvingScore()),
                 orZero(session.getGrammarScore()), orZero(session.getConfidenceScore()),
-                session.getOverallRecommendation(), List.of(), List.of(), results
+                session.getOverallRecommendation(), List.of(), List.of(), results,
+                session.getIntegrityScore(), session.getWarningsCount(), session.getEyeContactPercentage(),
+                session.getFacePresentPercentage(), session.getMultipleFacesDetected(), session.getPhoneChecked(),
+                session.getTabSwitches(), proctorLogDtos
         );
     }
 

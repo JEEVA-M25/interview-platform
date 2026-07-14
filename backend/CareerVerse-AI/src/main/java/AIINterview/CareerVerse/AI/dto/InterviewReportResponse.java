@@ -15,7 +15,15 @@ public record InterviewReportResponse(
         String overallRecommendation,
         List<String> overallStrengths,
         List<String> overallWeaknesses,
-        List<QuestionResultDto> questionResults
+        List<QuestionResultDto> questionResults,
+        Integer integrityScore,
+        Integer warningsCount,
+        Integer eyeContactPercentage,
+        Integer facePresentPercentage,
+        String multipleFacesDetected,
+        String phoneChecked,
+        Integer tabSwitches,
+        List<ProctorLogDto> proctorLogs
 ) {
     public record QuestionResultDto(
             String question,
@@ -28,5 +36,11 @@ public record InterviewReportResponse(
             boolean isFollowUp,
             String state,
             Integer responseTimeSeconds
+    ) {}
+
+    public record ProctorLogDto(
+            String timestamp,
+            String type,
+            String description
     ) {}
 }

@@ -143,7 +143,7 @@ public class QuestionGeneratorService {
         try {
             String raw = callGeminiRaw(prompt);
             if (raw == null) return null;
-            JsonNode node = objectMapper.readTree(raw);
+            JsonNode node = objectMapper.readTree(stripMarkdownFence(raw));
             if (node.path("followUp").asBoolean(false)) {
                 String q = node.path("question").asText("").trim();
                 return q.isBlank() ? null : q;
@@ -180,7 +180,7 @@ public class QuestionGeneratorService {
             String raw = callGeminiRaw(prompt);
             if (raw == null) return null;
 
-            JsonNode arr = objectMapper.readTree(raw);
+            JsonNode arr = objectMapper.readTree(stripMarkdownFence(raw));
             if (!arr.isArray()) return null;
 
             List<String> questions = new ArrayList<>();
@@ -226,7 +226,7 @@ public class QuestionGeneratorService {
                     .path("text").asText(null);
 
         } catch (Exception e) {
-            log.error("Gemini call failed: {}", e.getMessage());
+            log.error("Gemini call failed: {}", e.getMessage(), e);
             return null;
         }
     }
@@ -286,5 +286,14 @@ public class QuestionGeneratorService {
                     "Do you have any questions for us?"
             );
         };
+    }
+
+    private String stripMarkdownFence(String text) {
+        if (text == null) return "";
+        return text
+                .replaceFirst("^```json\\s*", "")
+                .replaceFirst("^```\\s*", "")
+                .replaceFirst("\\s*```$", "")
+                .trim();
     }
 }

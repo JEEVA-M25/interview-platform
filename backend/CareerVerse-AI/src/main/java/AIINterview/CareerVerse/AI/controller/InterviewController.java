@@ -108,9 +108,21 @@ public class InterviewController {
     @PostMapping("/sessions/{sessionId}/end")
     public InterviewReportResponse endSession(
             @PathVariable Long sessionId,
+            @RequestBody(required = false) EndSessionRequest integrityRequest,
             Principal principal
     ) {
-        return sessionService.endSession(principal.getName(), sessionId);
+        return sessionService.endSession(principal.getName(), sessionId, integrityRequest);
+    }
+
+    /** POST /api/interview/sessions/{sessionId}/proctor-logs — dynamic violation logging */
+    @PostMapping("/sessions/{sessionId}/proctor-logs")
+    @ResponseStatus(HttpStatus.CREATED)
+    public void addProctorLog(
+            @PathVariable Long sessionId,
+            @Valid @RequestBody ProctorLogRequest request,
+            Principal principal
+    ) {
+        sessionService.addProctorLog(principal.getName(), sessionId, request);
     }
 
     /** GET /api/interview/sessions/{sessionId}/report — fetch report for a completed session */

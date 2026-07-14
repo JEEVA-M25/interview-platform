@@ -2,9 +2,10 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   AlertCircle, CheckCircle2, ChevronRight, Loader2,
-  Mic, MicOff, SkipForward, Square, Video, VideoOff,
+  Mic, MicOff, SkipForward, Square, Video, ShieldAlert
 } from "lucide-react";
 import { interviewApi } from "../services/api.js";
+import { FilesetResolver, FaceLandmarker } from "@mediapipe/tasks-vision";
 
 // ── Speech Recognition ────────────────────────────────────────────────────
 const SpeechRecognition =
@@ -18,6 +19,9 @@ function useSpeechRecognition() {
 
   const start = useCallback(() => {
     if (!SpeechRecognition) return;
+    // Cancel any active session before starting
+    recognitionRef.current?.stop();
+    
     const rec = new SpeechRecognition();
     rec.continuous = true;
     rec.interimResults = true;
@@ -48,17 +52,7 @@ function useSpeechRecognition() {
   return { transcript, setTranscript, listening, supported, start, stop, reset };
 }
 
-// ── Timer ─────────────────────────────────────────────────────────────────
-function useTimer(active) {
-  const [seconds, setSeconds] = useState(0);
-  useEffect(() => {
-    if (!active) { setSeconds(0); return; }
-    const id = setInterval(() => setSeconds((s) => s + 1), 1000);
-    return () => clearInterval(id);
-  }, [active]);
-  return seconds;
-}
-
+// ── Timer formatting ──────────────────────────────────────────────────────
 function formatTime(s) {
   const m = Math.floor(s / 60);
   return `${String(m).padStart(2, "0")}:${String(s % 60).padStart(2, "0")}`;
@@ -68,201 +62,16 @@ function formatTime(s) {
 function speak(text) {
   if (!window.speechSynthesis || !text) return;
   window.speechSynthesis.cancel();
+  const voices = window.speechSynthesis.getVoices();
   const utt = new SpeechSynthesisUtterance(text);
+  // Try to use a high-quality natural sounding English voice if available
+  const googleVoice = voices.find(v => v.name.includes("Google US English") || v.name.includes("Natural"));
+  if (googleVoice) {
+    utt.voice = googleVoice;
+  }
   utt.rate = 0.95;
   utt.pitch = 1;
   window.speechSynthesis.speak(utt);
-}
-
-function stopSpeaking() {
-  window.speechSynthesis?.cancel();
-}
-
-// ── Camera preview ────────────────────────────────────────────────────────
-function CameraPreview() {
-  const videoRef = useRef(null);
-  const streamRef = useRef(null);
-  const [active, setActive] = useState(false);
-  const [error, setError] = useState(false);
-
-  async function toggle() {
-    if (active) {
-      streamRef.current?.getTracks().forEach((t) => t.stop());
-      streamRef.current = null;
-      if (videoRef.current) videoRef.current.srcObject = null;
-      setActive(false);
-    } else {
-      try {
-        const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
-        streamRef.current = stream;
-        if (videoRef.current) videoRef.current.srcObject = stream;
-        setActive(true);
-        setError(false);
-      } catch {
-        setError(true);
-      }
-    }
-  }
-
-  useEffect(() => () => streamRef.current?.getTracks().forEach((t) => t.stop()), []);
-
-  return (
-    <div className="rounded-2xl border border-slate-200 bg-white overflow-hidden shadow-sm shadow-slate-200/60">
-      <div className="flex items-center justify-between px-4 py-2.5 border-b border-slate-100">
-        <span className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Camera</span>
-        <button
-          onClick={toggle}
-          className={`flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-xs font-semibold transition-colors ${
-            active
-              ? "bg-red-50 text-red-600 hover:bg-red-100"
-              : "bg-slate-100 text-slate-600 hover:bg-slate-200"
-          }`}
-        >
-          {active ? <><VideoOff className="h-3 w-3" /> Off</> : <><Video className="h-3 w-3" /> On</>}
-        </button>
-      </div>
-      <div className="relative bg-slate-900 aspect-video">
-        <video
-          ref={videoRef}
-          autoPlay
-          muted
-          playsInline
-          className={`w-full h-full object-cover ${active ? "opacity-100" : "opacity-0"}`}
-        />
-        {!active && (
-          <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 text-slate-500">
-            <VideoOff className="h-8 w-8 opacity-30" />
-            <span className="text-xs opacity-50">{error ? "Camera unavailable" : "Camera off"}</span>
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
-
-// ── Typing animation ──────────────────────────────────────────────────────
-function TypingDots() {
-  const [frame, setFrame] = useState(0);
-  useEffect(() => {
-    const id = setInterval(() => setFrame((f) => (f + 1) % 3), 500);
-    return () => clearInterval(id);
-  }, []);
-  const dots = ["●", "● ●", "● ● ●"][frame];
-  return (
-    <div className="flex items-center gap-3 rounded-2xl border border-orange-200 bg-orange-50 px-5 py-4">
-      <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-orange-100 to-amber-100 flex items-center justify-center shrink-0">
-        <span className="text-orange-500 text-sm font-bold">AI</span>
-      </div>
-      <div>
-        <p className="text-xs font-semibold text-orange-500 mb-0.5">Evaluating your answer...</p>
-        <p className="text-base text-orange-400 tracking-widest">{dots}</p>
-      </div>
-    </div>
-  );
-}
-
-// ── Progress bar ──────────────────────────────────────────────────────────
-function ProgressBar({ completed, total }) {
-  const pct = total > 0 ? Math.round((completed / total) * 100) : 0;
-  return (
-    <div className="flex items-center gap-3">
-      <div className="flex-1 h-2 rounded-full bg-slate-200 overflow-hidden">
-        <motion.div
-          className="h-full rounded-full bg-gradient-to-r from-orange-500 to-amber-500"
-          initial={{ width: 0 }}
-          animate={{ width: `${pct}%` }}
-          transition={{ duration: 0.4 }}
-        />
-      </div>
-      <span className="text-xs font-semibold text-slate-500 shrink-0">{completed}/{total}</span>
-    </div>
-  );
-}
-
-// ── Eval card ─────────────────────────────────────────────────────────────
-function EvalCard({ evaluation, onNext }) {
-  const color = evaluation.score >= 8 ? "emerald" : evaluation.score >= 5 ? "amber" : "red";
-  const colorMap = {
-    emerald: { bg: "bg-emerald-50", border: "border-emerald-200", text: "text-emerald-700", badge: "bg-emerald-100 text-emerald-700" },
-    amber:   { bg: "bg-amber-50",   border: "border-amber-200",   text: "text-amber-700",   badge: "bg-amber-100 text-amber-700"   },
-    red:     { bg: "bg-red-50",     border: "border-red-200",     text: "text-red-700",     badge: "bg-red-100 text-red-700"       },
-  };
-  const c = colorMap[color];
-
-  return (
-    <motion.div
-      initial={{ opacity: 0, y: 12 }}
-      animate={{ opacity: 1, y: 0 }}
-      className={`rounded-2xl border ${c.border} ${c.bg} p-5 space-y-3`}
-    >
-      {evaluation.interviewerComment && (
-        <div className="flex items-start gap-2.5 rounded-xl border border-orange-200 bg-white px-4 py-3">
-          <span className="text-xs font-bold text-orange-500 bg-orange-50 rounded-lg px-2 py-1 shrink-0">AI</span>
-          <p className="text-sm text-slate-700 italic leading-relaxed">{evaluation.interviewerComment}</p>
-        </div>
-      )}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <CheckCircle2 className={`h-5 w-5 ${c.text}`} />
-          <span className="font-semibold text-slate-800">Answer evaluated</span>
-        </div>
-        <span className={`text-sm font-bold px-3 py-1 rounded-full ${c.badge}`}>{evaluation.score}/10</span>
-      </div>
-      <p className="text-sm text-slate-700 leading-relaxed">{evaluation.feedback}</p>
-      {evaluation.strengths && (
-        <p className="text-sm text-emerald-700"><span className="font-semibold">✓ </span>{evaluation.strengths}</p>
-      )}
-      {evaluation.weaknesses && (
-        <p className="text-sm text-red-600"><span className="font-semibold">✗ </span>{evaluation.weaknesses}</p>
-      )}
-      {evaluation.responseTimeSeconds != null && (
-        <p className="text-xs text-slate-400">Response time: {evaluation.responseTimeSeconds}s</p>
-      )}
-      {evaluation.hasFollowUp && evaluation.followUpQuestion && (
-        <div className="rounded-xl border border-orange-200 bg-orange-50 px-4 py-3">
-          <p className="text-xs font-semibold text-orange-600 uppercase tracking-wide mb-1">Follow-up question</p>
-          <p className="text-sm text-slate-800">{evaluation.followUpQuestion.question}</p>
-        </div>
-      )}
-      <button
-        onClick={onNext}
-        className="w-full rounded-xl bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition-all hover:scale-[1.01] flex items-center justify-center gap-2"
-      >
-        {evaluation.hasFollowUp ? "Answer follow-up" : "Next question"}
-        <ChevronRight className="h-4 w-4" />
-      </button>
-    </motion.div>
-  );
-}
-
-// ── Interviewer intro screen ──────────────────────────────────────────────
-function InterviewerIntro({ intro, onBegin }) {
-  useEffect(() => {
-    speak(intro);
-    return () => stopSpeaking();
-  }, [intro]);
-
-  return (
-    <motion.div
-      initial={{ opacity: 0, scale: 0.97 }}
-      animate={{ opacity: 1, scale: 1 }}
-      className="max-w-2xl mx-auto rounded-2xl border border-orange-200 bg-gradient-to-br from-orange-50 to-amber-50 p-8 shadow-sm text-center space-y-6"
-    >
-      <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-orange-400 to-amber-500 flex items-center justify-center mx-auto shadow-lg shadow-orange-200">
-        <span className="text-2xl font-bold text-white">AI</span>
-      </div>
-      <div className="space-y-2">
-        <p className="text-xs font-semibold uppercase tracking-widest text-orange-500">Your AI Interviewer</p>
-        <p className="text-slate-800 text-base leading-relaxed font-medium">{intro}</p>
-      </div>
-      <button
-        onClick={() => { stopSpeaking(); onBegin(); }}
-        className="rounded-xl bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 px-6 py-3 text-sm font-semibold text-white shadow-sm transition-all hover:scale-[1.02]"
-      >
-        I'm ready — let's begin →
-      </button>
-    </motion.div>
-  );
 }
 
 // ── Main component ────────────────────────────────────────────────────────
@@ -270,22 +79,335 @@ function InterviewSession({ session: initialSession, token, onFinished }) {
   const [session] = useState(initialSession);
   const [questions, setQuestions] = useState(initialSession.questions);
   const [currentIdx, setCurrentIdx] = useState(initialSession.currentQuestionIndex ?? 0);
-  const [phase, setPhase] = useState("question"); // question | submitting | evaluated | finishing
-  const [evaluation, setEvaluation] = useState(null);
+  const [phase, setPhase] = useState("question"); // question | submitting | finishing
   const [error, setError] = useState("");
   const [showIntro, setShowIntro] = useState(!!initialSession.interviewerIntro);
   const shownAtRef = useRef(null);
 
   const { transcript, setTranscript, listening, supported, start, stop, reset } =
     useSpeechRecognition();
-  const timerSeconds = useTimer(listening);
+
+  // Proctor state counters
+  const [faceState, setFaceState] = useState("Detected"); // Detected | Not Detected
+  const [eyesState, setEyesState] = useState("Looking Forward"); // Looking Forward | Looking Away
+  const [peopleState, setPeopleState] = useState("1"); // 0 | 1 | 2+
+  const [warningsCount, setWarningsCount] = useState(0);
+
+  // Timeouts for violations
+  const noFaceTimeRef = useRef(0);
+  const lookingAwayTimeRef = useRef(0);
+
+  const lastNoFaceWarningTime = useRef(0);
+  const lastLookingAwayWarningTime = useRef(0);
+  const lastMultipleFacesWarningTime = useRef(0);
+
+  // Warning text to overlay on UI
+  const [warningText, setWarningText] = useState("");
+
+  // MediaPipe landmarker refs
+  const [landmarker, setLandmarker] = useState(null);
+  const [loadingLandmarker, setLoadingLandmarker] = useState(true);
+  const videoRef = useRef(null);
+  const streamRef = useRef(null);
+  const [cameraActive, setCameraActive] = useState(false);
+  const [cameraError, setCameraError] = useState(false);
+
+  const [isFullscreen, setIsFullscreen] = useState(!!document.fullscreenElement);
+  const [showTabSwitchWarning, setShowTabSwitchWarning] = useState(false);
+  const [tabSwitchesCount, setTabSwitchesCount] = useState(0);
+
+  // Fullscreen event listener
+  useEffect(() => {
+    const handleFullscreenChange = () => {
+      setIsFullscreen(!!document.fullscreenElement);
+    };
+    document.addEventListener("fullscreenchange", handleFullscreenChange);
+    return () => {
+      document.removeEventListener("fullscreenchange", handleFullscreenChange);
+    };
+  }, []);
+
+  // Integrity metrics variables
+  const totalFramesRef = useRef(0);
+  const facePresentFramesRef = useRef(0);
+  const eyeContactFramesRef = useRef(0);
+  const tabSwitchesRef = useRef(0);
+  const multipleFacesRef = useRef(false);
+
+  const requestRef = useRef(null);
+  const lastVideoTimeRef = useRef(-1);
+
+  // Synchronize transcript for timeout handler
+  const transcriptRef = useRef("");
+  useEffect(() => {
+    transcriptRef.current = transcript;
+  }, [transcript]);
+
+  // Load MediaPipe Face Landmarker
+  useEffect(() => {
+    async function initLandmarker() {
+      try {
+        const vision = await FilesetResolver.forVisionTasks(
+          "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.8/wasm"
+        );
+        const lm = await FaceLandmarker.createFromOptions(vision, {
+          baseOptions: {
+            modelAssetPath: "https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task",
+            delegate: "GPU"
+          },
+          outputFaceBlendshapes: false,
+          runningMode: "VIDEO"
+        });
+        setLandmarker(lm);
+        setLoadingLandmarker(false);
+      } catch (err) {
+        console.error("Failed to initialize FaceLandmarker:", err);
+        setLoadingLandmarker(false);
+      }
+    }
+    initLandmarker();
+  }, []);
+
+  // Initialize camera stream
+  useEffect(() => {
+    async function startCamera() {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({
+          video: { width: 640, height: 480 },
+          audio: false
+        });
+        streamRef.current = stream;
+        if (videoRef.current) {
+          videoRef.current.srcObject = stream;
+        }
+        setCameraActive(true);
+        setCameraError(false);
+      } catch (err) {
+        console.error("Failed to start camera:", err);
+        setCameraActive(false);
+        setCameraError(true);
+      }
+    }
+    startCamera();
+
+    return () => {
+      if (streamRef.current) {
+        streamRef.current.getTracks().forEach((track) => track.stop());
+      }
+    };
+  }, []);
+
+  // Re-bind camera stream to videoRef when intro screen changes
+  useEffect(() => {
+    if (videoRef.current && streamRef.current) {
+      videoRef.current.srcObject = streamRef.current;
+    }
+  }, [showIntro, cameraActive]);
+
+  const handleRetryCamera = useCallback(async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { width: 640, height: 480 },
+        audio: false
+      });
+      streamRef.current = stream;
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
+      }
+      setCameraActive(true);
+      setCameraError(false);
+    } catch (err) {
+      console.error("Failed to restart camera:", err);
+      setCameraActive(false);
+      setCameraError(true);
+    }
+  }, []);
+
+  // Violation logging handler
+  const handleViolation = useCallback(async (type, description) => {
+    setWarningsCount((w) => w + 1);
+    try {
+      await interviewApi.submitProctorLog(session.sessionId, type, description, token);
+    } catch (err) {
+      console.error("Failed to upload proctor violation log:", err);
+    }
+  }, [session.sessionId, token]);
+
+  // MediaPipe detection loop
+  const loop = useCallback(() => {
+    if (!videoRef.current || !landmarker || !cameraActive) {
+      requestRef.current = requestAnimationFrame(loop);
+      return;
+    }
+
+    const video = videoRef.current;
+    if (video.readyState >= 2 && video.currentTime !== lastVideoTimeRef.current) {
+      lastVideoTimeRef.current = video.currentTime;
+
+      // Run detection
+      const startTimeMs = performance.now();
+      const result = landmarker.detectForVideo(video, startTimeMs);
+
+      totalFramesRef.current += 1;
+      const numFaces = result.faceLandmarks ? result.faceLandmarks.length : 0;
+      
+      // Face detection evaluation
+      if (numFaces === 0) {
+        setFaceState("Not Detected");
+        setEyesState("Looking Away");
+        setPeopleState("0");
+
+        if (noFaceTimeRef.current === 0) {
+          noFaceTimeRef.current = startTimeMs;
+        } else {
+          const elapsed = startTimeMs - noFaceTimeRef.current;
+          if (elapsed >= 3000) { // 3 seconds
+            const now = Date.now();
+            if (now - lastNoFaceWarningTime.current > 5000) {
+              lastNoFaceWarningTime.current = now;
+              handleViolation("FACE_LOST", "Warning: Face not detected.");
+            }
+            setWarningText("⚠️ Face not detected.");
+          }
+        }
+        lookingAwayTimeRef.current = 0;
+
+      } else if (numFaces > 1) {
+        setFaceState("Detected");
+        setPeopleState(numFaces.toString());
+        multipleFacesRef.current = true;
+
+        const now = Date.now();
+        if (now - lastMultipleFacesWarningTime.current > 5000) {
+          lastMultipleFacesWarningTime.current = now;
+          handleViolation("MULTIPLE_FACES", "Warning: Multiple faces detected.");
+        }
+        setWarningText("⚠️ Multiple faces detected.");
+
+        noFaceTimeRef.current = 0;
+        lookingAwayTimeRef.current = 0;
+
+      } else {
+        // Single face detected
+        setFaceState("Detected");
+        setPeopleState("1");
+        facePresentFramesRef.current += 1;
+        noFaceTimeRef.current = 0;
+        setWarningText((prev) => prev.includes("Face not detected") || prev.includes("Multiple faces") ? "" : prev);
+
+        const landmarks = result.faceLandmarks[0];
+        
+        // Eye tracking
+        // Left Eye: Outer corner: 33, Inner corner: 133, Iris: 468, Top: 159, Bottom: 145
+        // Right Eye: Inner corner: 362, Outer corner: 263, Iris: 473, Top: 386, Bottom: 374
+        const leftWidth = landmarks[133].x - landmarks[33].x;
+        const leftIrisOffset = landmarks[468].x - landmarks[33].x;
+        const ratioL = leftWidth > 0 ? leftIrisOffset / leftWidth : 0.5;
+
+        const rightWidth = landmarks[263].x - landmarks[362].x;
+        const rightIrisOffset = landmarks[473].x - landmarks[362].x;
+        const ratioR = rightWidth > 0 ? rightIrisOffset / rightWidth : 0.5;
+
+        const leftHeight = landmarks[145].y - landmarks[159].y;
+        const leftIrisOffsetV = landmarks[468].y - landmarks[159].y;
+        const ratioV = leftHeight > 0 ? leftIrisOffsetV / leftHeight : 0.5;
+
+        // Head rotation (Center lines)
+        const dLeft = landmarks[1].x - landmarks[234].x;
+        const dRight = landmarks[454].x - landmarks[1].x;
+        const rotationRatio = dRight > 0 ? dLeft / dRight : 1.0;
+
+        const isCenterGaze = (ratioL >= 0.38 && ratioL <= 0.62) &&
+                             (ratioR >= 0.38 && ratioR <= 0.62) &&
+                             (ratioV >= 0.38 && ratioV <= 0.62) &&
+                             (rotationRatio >= 0.7 && rotationRatio <= 1.4);
+
+        if (isCenterGaze) {
+          setEyesState("Looking Forward");
+          eyeContactFramesRef.current += 1;
+          lookingAwayTimeRef.current = 0;
+          setWarningText((prev) => prev.includes("keep your eyes") ? "" : prev);
+        } else {
+          setEyesState("Looking Away");
+          if (lookingAwayTimeRef.current === 0) {
+            lookingAwayTimeRef.current = startTimeMs;
+          } else {
+            const elapsed = startTimeMs - lookingAwayTimeRef.current;
+            if (elapsed >= 5000) { // 5 seconds
+              const now = Date.now();
+              if (now - lastLookingAwayWarningTime.current > 7000) {
+                lastLookingAwayWarningTime.current = now;
+                handleViolation("LOOKING_AWAY", "Warning: Please keep your eyes on the screen.");
+              }
+              setWarningText("⚠️ Please keep your eyes on the screen.");
+            }
+          }
+        }
+      }
+    }
+
+    requestRef.current = requestAnimationFrame(loop);
+  }, [landmarker, cameraActive, handleViolation]);
+
+  useEffect(() => {
+    requestRef.current = requestAnimationFrame(loop);
+    return () => cancelAnimationFrame(requestRef.current);
+  }, [loop]);
+
+  // Tab switch logs
+  useEffect(() => {
+    function handleVisibilityChange() {
+      if (document.visibilityState === "hidden") {
+        tabSwitchesRef.current += 1;
+        setTabSwitchesCount((prev) => {
+          const newCount = prev + 1;
+          handleViolation("TAB_SWITCH", `Warning: Tab switch detected (Switch #${newCount}).`);
+          setShowTabSwitchWarning(true);
+          return newCount;
+        });
+        setWarningText("⚠️ Tab switch detected.");
+      }
+    }
+
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+
+    return () => {
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+    };
+  }, [handleViolation]);
+
+  // Countdown timer logic
+  const [timeLeft, setTimeLeft] = useState(90);
+
+  useEffect(() => {
+    if (phase !== "question" || showIntro) return;
+    const interval = setInterval(() => {
+      setTimeLeft((t) => {
+        if (t <= 1) {
+          clearInterval(interval);
+          handleTimeout();
+          return 0;
+        }
+        return t - 1;
+      });
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [currentIdx, phase, showIntro]);
+
+  const handleTimeout = useCallback(() => {
+    if (transcriptRef.current && transcriptRef.current.trim()) {
+      handleSubmitAnswer(transcriptRef.current.trim());
+    } else {
+      handleSkipQuestion();
+    }
+  }, [currentIdx]);
 
   const currentQuestion = questions[currentIdx] ?? null;
   const answeredCount = questions.filter(
     (q) => q.state === "ANSWERED" || q.state === "SKIPPED"
   ).length;
 
-  // Speak question when it changes (after intro dismissed)
+  // Speak question & mark shown when question changes
   useEffect(() => {
     if (showIntro || !currentQuestion) return;
     shownAtRef.current = new Date().toISOString();
@@ -293,38 +415,57 @@ function InterviewSession({ session: initialSession, token, onFinished }) {
     interviewApi.markQuestionShown(session.sessionId, currentQuestion.id, token).catch(() => {});
   }, [currentQuestion?.id, showIntro]);
 
-  // Speak interviewerComment when evaluation arrives
+  // Auto-mic activation (3.5s delay to allow question reading)
   useEffect(() => {
-    if (evaluation?.interviewerComment) speak(evaluation.interviewerComment);
-  }, [evaluation]);
+    if (showIntro || !currentQuestion || phase !== "question") return;
+    setTimeLeft(90);
+    
+    if (supported) {
+      const micTimer = setTimeout(() => {
+        if (phase === "question") {
+          start();
+        }
+      }, 3500);
+      return () => clearTimeout(micTimer);
+    }
+  }, [currentIdx, showIntro, phase]);
 
   function handleBeginInterview() {
     setShowIntro(false);
   }
 
   function handleStartRecording() {
-    stopSpeaking();
+    window.speechSynthesis.cancel();
     reset();
     start();
   }
 
   function handleStopRecording() { stop(); }
 
-  async function handleSubmit() {
-    if (!transcript.trim()) return;
-    stopSpeaking();
+  async function handleSubmitAnswer(answerText) {
+    if (phase !== "question") return;
+    const textToSubmit = answerText || transcript.trim();
+    if (!textToSubmit) return;
+    
+    stop();
+    window.speechSynthesis.cancel();
     setPhase("submitting");
     setError("");
+    
     try {
       const payload = {
         questionId: currentQuestion.id,
-        transcript: transcript.trim(),
+        transcript: textToSubmit,
         questionShownAt: shownAtRef.current,
       };
+      
       const eval_ = await interviewApi.submitAnswer(session.sessionId, payload, token);
+      
       setQuestions((prev) =>
         prev.map((q) => q.id === currentQuestion.id ? { ...q, state: "ANSWERED" } : q)
       );
+      
+      // Dynamic follow-up splicing
       if (eval_.hasFollowUp && eval_.followUpQuestion) {
         setQuestions((prev) => {
           const next = [...prev];
@@ -332,32 +473,30 @@ function InterviewSession({ session: initialSession, token, onFinished }) {
           return next;
         });
       }
-      setEvaluation(eval_);
-      setPhase("evaluated");
+      
+      reset();
+      advanceOrFinish();
     } catch (err) {
       setError(err.message || "Failed to submit answer.");
       setPhase("question");
     }
   }
 
-  async function handleSkip() {
+  async function handleSkipQuestion() {
+    if (phase !== "question") return;
     setError("");
-    stopSpeaking();
+    stop();
+    window.speechSynthesis.cancel();
     try {
       await interviewApi.skipQuestion(session.sessionId, currentQuestion.id, token);
       setQuestions((prev) =>
         prev.map((q) => q.id === currentQuestion.id ? { ...q, state: "SKIPPED" } : q)
       );
+      reset();
       advanceOrFinish();
     } catch (err) {
       setError(err.message || "Failed to skip question.");
     }
-  }
-
-  function handleNext() {
-    setEvaluation(null);
-    reset();
-    advanceOrFinish();
   }
 
   function advanceOrFinish() {
@@ -371,11 +510,27 @@ function InterviewSession({ session: initialSession, token, onFinished }) {
   }
 
   async function handleFinish() {
-    stopSpeaking();
+    stop();
+    window.speechSynthesis.cancel();
     setPhase("finishing");
     setError("");
     try {
-      const report = await interviewApi.endSession(session.sessionId, token);
+      const finalFrames = totalFramesRef.current > 0 ? totalFramesRef.current : 1;
+      const facePresentPct = Math.min(100, Math.round((facePresentFramesRef.current / finalFrames) * 100));
+      const eyeContactPct = Math.min(100, Math.round((eyeContactFramesRef.current / finalFrames) * 100));
+      const integrityScr = Math.max(0, 100 - warningsCount * 5 - tabSwitchesRef.current * 10);
+
+      const integrityPayload = {
+        integrityScore: integrityScr,
+        warningsCount: warningsCount,
+        eyeContactPercentage: eyeContactPct,
+        facePresentPercentage: facePresentPct,
+        multipleFacesDetected: multipleFacesRef.current ? "Yes" : "No",
+        phoneChecked: "Not Checked",
+        tabSwitches: tabSwitchesRef.current,
+      };
+
+      const report = await interviewApi.endSession(session.sessionId, integrityPayload, token);
       onFinished(report);
     } catch (err) {
       setError(err.message || "Failed to generate report.");
@@ -383,20 +538,33 @@ function InterviewSession({ session: initialSession, token, onFinished }) {
     }
   }
 
-  // Show intro screen first
+  // Get Timer Color classes
+  function getTimerClass() {
+    if (timeLeft <= 5) return "text-red-600 bg-red-50 border-red-200";
+    if (timeLeft <= 15) return "text-orange-500 bg-orange-50 border-orange-200";
+    return "text-emerald-600 bg-emerald-50 border-emerald-200";
+  }
+
   if (showIntro) {
     return (
       <div className="max-w-3xl mx-auto pt-8">
-        <InterviewerIntro intro={initialSession.interviewerIntro} onBegin={handleBeginInterview} />
+        <InterviewerIntro
+          intro={initialSession.interviewerIntro}
+          onBegin={handleBeginInterview}
+          cameraActive={cameraActive}
+          cameraError={cameraError}
+          videoRef={videoRef}
+          onRetryCamera={handleRetryCamera}
+        />
       </div>
     );
   }
 
   return (
-    <div className="grid grid-cols-1 xl:grid-cols-[1fr_260px] gap-4 max-w-5xl mx-auto items-start">
-      {/* Main column */}
+    <div className="grid grid-cols-1 xl:grid-cols-[1fr_300px] gap-4 max-w-6xl mx-auto items-start">
+      {/* Left column — Mock interview panel */}
       <div className="space-y-4">
-        {/* Header bar */}
+        {/* Header metrics bar */}
         <div className="rounded-2xl border border-slate-200 bg-white px-6 py-4 shadow-sm shadow-slate-200/60">
           <div className="flex items-center justify-between gap-4 mb-3">
             <div>
@@ -404,19 +572,18 @@ function InterviewSession({ session: initialSession, token, onFinished }) {
               <h1 className="text-lg font-bold text-slate-900">{session.role} · {session.difficulty}</h1>
             </div>
             <div className="flex items-center gap-3">
-              {listening && (
-                <span className="flex items-center gap-1.5 text-xs font-semibold text-red-500 bg-red-50 border border-red-200 px-3 py-1.5 rounded-full tabular-nums">
-                  <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
-                  {formatTime(timerSeconds)}
-                </span>
-              )}
+              {/* Question Countdown Timer */}
+              <span className={`flex items-center gap-1.5 text-xs font-bold border px-3 py-1.5 rounded-full tabular-nums ${getTimerClass()}`}>
+                Time Left: {formatTime(timeLeft)}
+              </span>
+              
               <button
                 onClick={handleFinish}
                 disabled={phase === "finishing"}
                 className="rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-600 hover:bg-slate-100 transition-colors disabled:opacity-50"
               >
                 {phase === "finishing" ? (
-                  <span className="flex items-center gap-1.5"><Loader2 className="h-3 w-3 animate-spin" /> Finishing...</span>
+                  <span className="flex items-center gap-1.5"><Loader2 className="h-3 w-3 animate-spin" /> Ending...</span>
                 ) : "End Interview"}
               </button>
             </div>
@@ -427,9 +594,24 @@ function InterviewSession({ session: initialSession, token, onFinished }) {
           </p>
         </div>
 
-        {/* Question card */}
+        {/* Warning Banner Overlay */}
+        <AnimatePresence>
+          {warningText && (
+            <motion.div
+              initial={{ opacity: 0, y: -10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+              className="flex items-center gap-2 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 font-semibold"
+            >
+              <AlertCircle className="h-5 w-5 text-red-500 shrink-0" />
+              <span>{warningText}</span>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* Question Panel */}
         <AnimatePresence mode="wait">
-          {currentQuestion && (
+          {currentQuestion && phase === "question" && (
             <motion.div
               key={currentQuestion.id}
               initial={{ opacity: 0, x: 24 }}
@@ -454,121 +636,389 @@ function InterviewSession({ session: initialSession, token, onFinished }) {
                 </div>
               </div>
 
-              {/* Typing animation while submitting */}
-              {phase === "submitting" && <TypingDots />}
-
-              {/* Transcript + controls */}
-              {phase !== "evaluated" && phase !== "submitting" && (
-                <div className="space-y-3">
-                  <div className="relative">
-                    <textarea
-                      value={transcript}
-                      onChange={(e) => setTranscript(e.target.value)}
-                      placeholder={
-                        supported
-                          ? "Click the mic to start speaking, or type your answer here..."
-                          : "Type your answer here..."
-                      }
-                      rows={5}
-                      className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-800 placeholder-slate-400 outline-none focus:border-orange-400 focus:ring-2 focus:ring-orange-200 resize-none transition-colors"
-                    />
-                    {listening && (
-                      <div className="absolute bottom-3 right-3 flex items-center gap-1.5 text-xs text-red-500 font-medium">
-                        <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse" />
-                        Listening...
-                      </div>
-                    )}
-                  </div>
-
-                  <div className="flex items-center gap-2 flex-wrap">
-                    {supported && (
-                      <>
-                        {!listening ? (
-                          <button
-                            type="button"
-                            onClick={handleStartRecording}
-                            className="flex items-center gap-2 rounded-xl bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition-all hover:scale-[1.02]"
-                          >
-                            <Mic className="h-4 w-4" /> Start Recording
-                          </button>
-                        ) : (
-                          <button
-                            type="button"
-                            onClick={handleStopRecording}
-                            className="flex items-center gap-2 rounded-xl bg-red-500 hover:bg-red-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition-all"
-                          >
-                            <Square className="h-4 w-4" /> Stop Recording
-                          </button>
-                        )}
-                      </>
-                    )}
-                    <button
-                      type="button"
-                      onClick={handleSubmit}
-                      disabled={!transcript.trim() || listening}
-                      className="flex items-center gap-2 rounded-xl bg-slate-800 hover:bg-slate-900 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition-all hover:scale-[1.02] disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:scale-100"
-                    >
-                      <MicOff className="h-4 w-4" /> Submit Answer
-                    </button>
-                    <button
-                      type="button"
-                      onClick={handleSkip}
-                      className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white hover:bg-slate-100 px-4 py-2.5 text-sm font-medium text-slate-500 transition-colors"
-                    >
-                      <SkipForward className="h-4 w-4" /> Skip
-                    </button>
-                  </div>
-
-                  {!supported && (
-                    <div className="flex items-center gap-2 rounded-xl border border-amber-200 bg-amber-50 px-4 py-2.5">
-                      <AlertCircle className="h-4 w-4 text-amber-500 shrink-0" />
-                      <p className="text-xs text-amber-700">Speech recognition not supported. Please type your answer.</p>
+              {/* Speech transcript input */}
+              <div className="space-y-3">
+                <div className="relative">
+                  <textarea
+                    value={transcript}
+                    readOnly
+                    placeholder={
+                      supported
+                        ? "Speak your answer..."
+                        : "Speech recognition not supported."
+                    }
+                    rows={5}
+                    className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-800 placeholder-slate-400 outline-none resize-none transition-colors cursor-default select-none focus:ring-0"
+                  />
+                  {listening && (
+                    <div className="absolute bottom-3 right-3 flex items-center gap-1.5 text-xs text-red-500 font-medium">
+                      <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse" />
+                      Listening...
                     </div>
                   )}
                 </div>
-              )}
 
-              {phase === "evaluated" && evaluation && (
-                <EvalCard evaluation={evaluation} onNext={handleNext} />
-              )}
-
-              {error && (
-                <div className="flex items-center gap-2 rounded-xl border border-red-200 bg-red-50 px-4 py-2.5">
-                  <AlertCircle className="h-4 w-4 text-red-500 shrink-0" />
-                  <p className="text-sm text-red-600">{error}</p>
+                <div className="flex items-center gap-2 flex-wrap">
+                  {supported && (
+                    <>
+                      {!listening ? (
+                        <button
+                          type="button"
+                          onClick={handleStartRecording}
+                          className="flex items-center gap-2 rounded-xl bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition-all hover:scale-[1.02]"
+                        >
+                          <Mic className="h-4 w-4" /> Start Recording
+                        </button>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={handleStopRecording}
+                          className="flex items-center gap-2 rounded-xl bg-red-500 hover:bg-red-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition-all"
+                        >
+                          <Square className="h-4 w-4" /> Stop Recording
+                        </button>
+                      )}
+                    </>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => handleSubmitAnswer()}
+                    disabled={!transcript.trim()}
+                    className="flex items-center gap-2 rounded-xl bg-slate-800 hover:bg-slate-900 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition-all hover:scale-[1.02] disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:scale-100"
+                  >
+                    <MicOff className="h-4 w-4" /> Submit Answer
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleSkipQuestion}
+                    className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white hover:bg-slate-100 px-4 py-2.5 text-sm font-medium text-slate-500 transition-colors"
+                  >
+                    <SkipForward className="h-4 w-4" /> Skip
+                  </button>
                 </div>
-              )}
+              </div>
+            </motion.div>
+          )}
+
+          {phase === "submitting" && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm shadow-slate-200/60 text-center space-y-4"
+            >
+              <Loader2 className="h-8 w-8 animate-spin text-orange-500 mx-auto" />
+              <p className="font-semibold text-slate-700">Submitting your response...</p>
+            </motion.div>
+          )}
+
+          {phase === "finishing" && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              className="rounded-2xl border border-orange-200 bg-gradient-to-br from-orange-50 to-amber-50 p-8 text-center shadow-sm"
+            >
+              <Loader2 className="h-8 w-8 animate-spin text-orange-500 mx-auto mb-3" />
+              <p className="font-semibold text-slate-800">Generating final report...</p>
+              <p className="text-sm text-slate-500 mt-1">AI is calculating your scoring and proctoring metrics.</p>
             </motion.div>
           )}
         </AnimatePresence>
 
-        {phase === "finishing" && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            className="rounded-2xl border border-orange-200 bg-gradient-to-br from-orange-50 to-amber-50 p-8 text-center shadow-sm"
-          >
-            <Loader2 className="h-8 w-8 animate-spin text-orange-500 mx-auto mb-3" />
-            <p className="font-semibold text-slate-800">Generating your report...</p>
-            <p className="text-sm text-slate-500 mt-1">Gemini is scoring your full interview. This takes a few seconds.</p>
-          </motion.div>
+        {error && (
+          <div className="flex items-center gap-2 rounded-xl border border-red-200 bg-red-50 px-4 py-2.5 text-sm text-red-600 break-words overflow-hidden">
+            <AlertCircle className="h-4 w-4 text-red-500 shrink-0" />
+            <span className="break-all">{error}</span>
+          </div>
         )}
       </div>
 
-      {/* Side column — camera */}
+      {/* Right Column — Webcam lock & Integrity monitor */}
       <div className="space-y-4">
-        <CameraPreview />
+        {/* Webcam View */}
+        <div className="rounded-2xl border border-slate-200 bg-white overflow-hidden shadow-sm shadow-slate-200/60">
+          <div className="flex items-center justify-between px-4 py-2.5 border-b border-slate-100">
+            <span className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Webcam Stream</span>
+            <span className="inline-flex items-center gap-1 text-[10px] bg-red-100 text-red-600 font-bold px-2 py-0.5 rounded-full uppercase tracking-wider">
+              Always ON
+            </span>
+          </div>
+          <div className="relative bg-slate-900 aspect-video">
+            <video
+              ref={videoRef}
+              autoPlay
+              muted
+              playsInline
+              className={`w-full h-full object-cover ${cameraActive ? "opacity-100" : "opacity-0"}`}
+            />
+            {!cameraActive && (
+              <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 text-slate-500">
+                {cameraError ? (
+                  <AlertCircle className="h-8 w-8 text-red-400" />
+                ) : (
+                  <Loader2 className="h-8 w-8 animate-spin text-slate-400" />
+                )}
+                <span className="text-xs font-semibold">
+                  {cameraError ? "Camera Access Denied" : "Starting Video..."}
+                </span>
+              </div>
+            )}
+            {/* Absolute loading indicator for MediaPipe model loading */}
+            {loadingLandmarker && (
+              <div className="absolute top-2 left-2 flex items-center gap-1.5 bg-black/60 backdrop-blur-sm px-2.5 py-1 rounded-lg text-[10px] text-white">
+                <Loader2 className="h-3 w-3 animate-spin text-orange-400" />
+                <span>Loading Face tracking...</span>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Warning Integrity Dashboard Panel */}
+        <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm shadow-slate-200/60 space-y-4">
+          <div className="flex items-center gap-2 pb-2.5 border-b border-slate-100">
+            <ShieldAlert className="h-5 w-5 text-orange-500" />
+            <h3 className="font-bold text-sm text-slate-800">Interview Integrity</h3>
+          </div>
+          <div className="space-y-3">
+            {[
+              { label: "Camera", val: cameraActive ? "Active" : "Inactive", ok: cameraActive },
+              { label: "Face", val: faceState, ok: faceState === "Detected" },
+              { label: "Eyes", val: eyesState, ok: eyesState === "Looking Forward" },
+              { label: "People", val: peopleState, ok: peopleState === "1" }
+            ].map(({ label, val, ok }) => (
+              <div key={label} className="flex justify-between items-center text-xs">
+                <span className="text-slate-500 font-semibold">{label}</span>
+                <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full font-bold ${
+                  ok ? "bg-emerald-50 text-emerald-700" : "bg-red-50 text-red-600"
+                }`}>
+                  <span className={`w-1.5 h-1.5 rounded-full ${ok ? "bg-emerald-500" : "bg-red-500"}`} />
+                  {val}
+                </span>
+              </div>
+            ))}
+            <div className="flex justify-between items-center text-xs pt-3 border-t border-slate-100">
+              <span className="text-slate-500 font-semibold">Warnings</span>
+              <span className={`font-bold px-2 py-0.5 rounded ${warningsCount > 0 ? "text-red-600 bg-red-50" : "text-slate-700 bg-slate-100"}`}>
+                {warningsCount}
+              </span>
+            </div>
+          </div>
+        </div>
+
+        {/* Proctoring Tips */}
         <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm shadow-slate-200/60 space-y-2">
-          <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Tips</p>
+          <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Security Policies</p>
           <ul className="text-xs text-slate-500 space-y-1.5 leading-relaxed">
-            <li>• Speak clearly and at a steady pace</li>
-            <li>• Structure answers with examples</li>
-            <li>• It's OK to take a moment to think</li>
-            <li>• You can edit the transcript before submitting</li>
+            <li>• Webcam must remain active at all times.</li>
+            <li>• Keep your eyes focused forward on the screen.</li>
+            <li>• Ensure you are alone in a well-lit room.</li>
+            <li>• Do not toggle browser tabs or leave focus.</li>
           </ul>
         </div>
       </div>
+
+      {/* Camera Lost Modal Overlay */}
+      <AnimatePresence>
+        {!showIntro && !cameraActive && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 bg-slate-900/80 backdrop-blur-md flex items-center justify-center p-4"
+          >
+            <motion.div
+              initial={{ scale: 0.95 }}
+              animate={{ scale: 1 }}
+              exit={{ scale: 0.95 }}
+              className="bg-white rounded-2xl border border-slate-200 p-6 max-w-md w-full shadow-2xl text-center space-y-4"
+            >
+              <div className="w-12 h-12 rounded-full bg-red-100 flex items-center justify-center mx-auto">
+                <Video className="h-6 w-6 text-red-600 animate-pulse" />
+              </div>
+              <h3 className="text-lg font-bold text-slate-900">Camera Access Required</h3>
+              <p className="text-sm text-slate-500 leading-relaxed">
+                The webcam stream must remain active at all times during the interview. 
+                Please check your camera settings and ensure permission is granted to proceed.
+              </p>
+              <button
+                onClick={handleRetryCamera}
+                className="w-full rounded-xl bg-red-600 hover:bg-red-700 py-3 text-sm font-semibold text-white transition-colors"
+              >
+                Enable Camera & Resume
+              </button>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Fullscreen Required Modal Overlay */}
+      <AnimatePresence>
+        {!isFullscreen && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 bg-slate-900/90 backdrop-blur-md flex items-center justify-center p-4"
+          >
+            <motion.div
+              initial={{ scale: 0.95 }}
+              animate={{ scale: 1 }}
+              exit={{ scale: 0.95 }}
+              className="bg-white rounded-2xl border border-slate-200 p-6 max-w-md w-full shadow-2xl text-center space-y-4"
+            >
+              <div className="w-12 h-12 rounded-full bg-orange-100 flex items-center justify-center mx-auto">
+                <ShieldAlert className="h-6 w-6 text-orange-600 animate-bounce" />
+              </div>
+              <h3 className="text-lg font-bold text-slate-900">Fullscreen Mode Required</h3>
+              <p className="text-sm text-slate-500 leading-relaxed font-medium">
+                This interview session is proctored. You must be in fullscreen mode to start or continue the test.
+              </p>
+              <button
+                onClick={async () => {
+                  try {
+                    if (document.documentElement.requestFullscreen) {
+                      await document.documentElement.requestFullscreen();
+                    }
+                    setIsFullscreen(true);
+                  } catch (err) {
+                    console.error("Failed to enter fullscreen:", err);
+                  }
+                }}
+                className="w-full rounded-xl bg-orange-600 hover:bg-orange-700 py-3 text-sm font-semibold text-white transition-colors"
+              >
+                Enter Fullscreen & Resume
+              </button>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Tab Switch Warning Modal Overlay */}
+      <AnimatePresence>
+        {showTabSwitchWarning && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-40 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4"
+          >
+            <motion.div
+              initial={{ scale: 0.95 }}
+              animate={{ scale: 1 }}
+              exit={{ scale: 0.95 }}
+              className="bg-white rounded-2xl border border-slate-200 p-6 max-w-md w-full shadow-2xl text-center space-y-4"
+            >
+              <div className="w-12 h-12 rounded-full bg-red-100 flex items-center justify-center mx-auto">
+                <AlertCircle className="h-6 w-6 text-red-600 animate-pulse" />
+              </div>
+              <h3 className="text-lg font-bold text-slate-900">Security Alert: Tab Switch Detected</h3>
+              <p className="text-sm text-slate-500 leading-relaxed font-medium">
+                You shifted focus away from the test tab. Navigating to other tabs, windows, or applications 
+                is logged as an integrity warning.
+              </p>
+              <div className="bg-red-50 rounded-xl p-3 border border-red-100 flex justify-between items-center text-red-700 font-semibold text-sm">
+                <span>Tab Switch Count:</span>
+                <span className="text-base">{tabSwitchesCount}</span>
+              </div>
+              <button
+                onClick={() => setShowTabSwitchWarning(false)}
+                className="w-full rounded-xl bg-slate-900 hover:bg-slate-800 py-3 text-sm font-semibold text-white transition-colors"
+              >
+                I Understood & Resume Test
+              </button>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
+  );
+}
+
+// ── Progress bar ──────────────────────────────────────────────────────────
+function ProgressBar({ completed, total }) {
+  const pct = total > 0 ? Math.round((completed / total) * 100) : 0;
+  return (
+    <div className="flex items-center gap-3">
+      <div className="flex-1 h-2 rounded-full bg-slate-200 overflow-hidden">
+        <motion.div
+          className="h-full rounded-full bg-gradient-to-r from-orange-500 to-amber-500"
+          initial={{ width: 0 }}
+          animate={{ width: `${pct}%` }}
+          transition={{ duration: 0.4 }}
+        />
+      </div>
+      <span className="text-xs font-semibold text-slate-500 shrink-0">{completed}/{total}</span>
+    </div>
+  );
+}
+
+// ── Interviewer intro screen ──────────────────────────────────────────────
+function InterviewerIntro({ intro, onBegin, cameraActive, cameraError, videoRef, onRetryCamera }) {
+  useEffect(() => {
+    speak(intro);
+    return () => window.speechSynthesis.cancel();
+  }, [intro]);
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, scale: 0.97 }}
+      animate={{ opacity: 1, scale: 1 }}
+      className="max-w-2xl mx-auto rounded-2xl border border-orange-200 bg-gradient-to-br from-orange-50 to-amber-50 p-8 shadow-sm text-center space-y-6"
+    >
+      <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-orange-400 to-amber-500 flex items-center justify-center mx-auto shadow-lg shadow-orange-200">
+        <span className="text-2xl font-bold text-white">AI</span>
+      </div>
+      <div className="space-y-2">
+        <p className="text-xs font-semibold uppercase tracking-widest text-orange-500">Your AI Interviewer</p>
+        <p className="text-slate-800 text-base leading-relaxed font-medium">{intro}</p>
+      </div>
+
+      {/* Webcam Preview inside Intro card */}
+      <div className="rounded-xl border border-slate-200 bg-slate-900 overflow-hidden aspect-video max-w-sm mx-auto relative">
+        <video
+          ref={videoRef}
+          autoPlay
+          muted
+          playsInline
+          className={`w-full h-full object-cover ${cameraActive ? "opacity-100" : "opacity-0"}`}
+        />
+        {!cameraActive && (
+          <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 text-slate-500 p-4">
+            {cameraError ? (
+              <AlertCircle className="h-6 w-6 text-red-400" />
+            ) : (
+              <Loader2 className="h-6 w-6 animate-spin text-slate-400" />
+            )}
+            <span className="text-xs font-semibold">
+              {cameraError ? "Camera Access Denied" : "Preparing camera preview..."}
+            </span>
+            {cameraError && (
+              <button
+                onClick={onRetryCamera}
+                className="mt-2 rounded-lg bg-white/10 hover:bg-white/20 border border-white/20 px-3 py-1.5 text-[10px] text-white transition-colors"
+              >
+                Retry Access
+              </button>
+            )}
+          </div>
+        )}
+      </div>
+
+      <div className="space-y-3">
+        <button
+          onClick={() => { window.speechSynthesis.cancel(); onBegin(); }}
+          disabled={!cameraActive}
+          className="rounded-xl bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 px-6 py-3 text-sm font-semibold text-white shadow-sm transition-all hover:scale-[1.02] disabled:opacity-40 disabled:scale-100 disabled:cursor-not-allowed"
+        >
+          I'm ready — let's begin →
+        </button>
+        {!cameraActive && (
+          <p className="text-xs font-semibold text-red-500">
+            ⚠️ Camera stream is required to begin. Please check permissions above.
+          </p>
+        )}
+      </div>
+    </motion.div>
   );
 }
 
