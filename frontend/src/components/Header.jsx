@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import {
+  BrainCircuit,
   BriefcaseBusiness,
   ChevronDown,
   FileText,
@@ -11,9 +12,9 @@ import {
 } from "lucide-react";
 
 const navItems = [
-  { key: "dashboard", label: "Dashboard", icon: LayoutGrid },
-  { key: "applications", label: "Applications", icon: BriefcaseBusiness },
-  { key: "ats-score", label: "ATS Score", icon: FileText },
+  { key: "dashboard",        label: "Dashboard",  icon: LayoutGrid },
+  { key: "interview",        label: "Interview",   icon: BrainCircuit },
+  { key: "ats-score",        label: "ATS Score",   icon: FileText },
   { key: "job-applications", label: "Job Matching", icon: Sparkles },
 ];
 

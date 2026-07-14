@@ -1,3 +1,4 @@
+// AtsScoreRequest.java
 package AIINterview.CareerVerse.AI.dto;
 
 import jakarta.validation.constraints.NotBlank;

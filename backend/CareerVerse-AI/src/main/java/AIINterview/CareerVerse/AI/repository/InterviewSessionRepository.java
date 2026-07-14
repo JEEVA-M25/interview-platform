@@ -1,0 +1,10 @@
+package AIINterview.CareerVerse.AI.repository;
+
+import AIINterview.CareerVerse.AI.model.InterviewSession;
+import org.springframework.data.jpa.repository.JpaRepository;
+
+import java.util.List;
+
+public interface InterviewSessionRepository extends JpaRepository<InterviewSession, Long> {
+    List<InterviewSession> findByUserIdOrderByStartedAtDesc(Long userId);
+}

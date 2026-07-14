@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import { ArrowRight, BadgeCheck, BriefcaseBusiness, Clock3, Sparkles, UserCircle2 } from "lucide-react";
 import AtsAnalyzer from "./AtsAnalyzer.jsx";
+import Interview from "./Interview.jsx";
 import SkillGapAnalyzer from "./SkillGapAnalyzer.jsx";
 import DashboardCard from "./ui/DashboardCard.jsx";
 import EmptyState from "./ui/EmptyState.jsx";
@@ -127,6 +128,7 @@ function StudentDashboard({ user, activeView, onNavigate }) {
 
   if (activeView === "ats-score") return <AtsAnalyzer token={user.token} />;
   if (activeView === "job-applications") return <SkillGapAnalyzer token={user.token} />;
+  if (activeView === "interview") return <Interview token={user.token} onBack={() => onNavigate("dashboard")} />;
 
   return (
     <div className="space-y-6">
@@ -136,6 +138,7 @@ function StudentDashboard({ user, activeView, onNavigate }) {
         description="Here's your career workspace at a glance."
         actions={[
           <button key="ats" type="button" className={btnPrimary} onClick={() => onNavigate("ats-score")}>ATS Analysis</button>,
+          <button key="interview" type="button" className={btnPrimary} onClick={() => onNavigate("interview")}>Start Interview</button>,
           <button key="jobs" type="button" className={btnSecondary} onClick={() => onNavigate("job-applications")}>Job Matching</button>,
         ]}
       />
@@ -157,6 +160,7 @@ function StudentDashboard({ user, activeView, onNavigate }) {
           <div className="space-y-2.5">
             {[
               { label: "Upload a resume", view: "ats-score" },
+              { label: "Start AI Interview", view: "interview" },
               { label: "Match with a role", view: "job-applications" },
               { label: "Complete your profile", view: "profile" },
             ].map(({ label, view }) => (

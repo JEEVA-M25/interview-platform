@@ -1,3 +1,4 @@
+//AtsScoreResponse.java
 package AIINterview.CareerVerse.AI.dto;
 
 import java.util.List;
