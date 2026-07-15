@@ -62,6 +62,16 @@ public class InterviewSession {
     @OneToMany(mappedBy = "session", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
     private List<ProctorLogEntry> proctorLogs = new ArrayList<>();
 
+    @ElementCollection(fetch = FetchType.EAGER)
+    @CollectionTable(name = "interview_session_strengths", joinColumns = @JoinColumn(name = "session_id"))
+    @Column(name = "strength", columnDefinition = "TEXT")
+    private List<String> overallStrengths = new ArrayList<>();
+
+    @ElementCollection(fetch = FetchType.EAGER)
+    @CollectionTable(name = "interview_session_weaknesses", joinColumns = @JoinColumn(name = "session_id"))
+    @Column(name = "weakness", columnDefinition = "TEXT")
+    private List<String> overallWeaknesses = new ArrayList<>();
+
     public enum SessionStatus {
         CREATED, IN_PROGRESS, COMPLETED
     }
@@ -139,4 +149,28 @@ public class InterviewSession {
 
     public List<ProctorLogEntry> getProctorLogs() { return proctorLogs; }
     public void setProctorLogs(List<ProctorLogEntry> proctorLogs) { this.proctorLogs = proctorLogs; }
+
+    public List<String> getOverallStrengths() { return overallStrengths; }
+    public void setOverallStrengths(List<String> overallStrengths) {
+        if (this.overallStrengths == null) {
+            this.overallStrengths = new ArrayList<>();
+        } else {
+            this.overallStrengths.clear();
+        }
+        if (overallStrengths != null) {
+            this.overallStrengths.addAll(overallStrengths);
+        }
+    }
+
+    public List<String> getOverallWeaknesses() { return overallWeaknesses; }
+    public void setOverallWeaknesses(List<String> overallWeaknesses) {
+        if (this.overallWeaknesses == null) {
+            this.overallWeaknesses = new ArrayList<>();
+        } else {
+            this.overallWeaknesses.clear();
+        }
+        if (overallWeaknesses != null) {
+            this.overallWeaknesses.addAll(overallWeaknesses);
+        }
+    }
 }
