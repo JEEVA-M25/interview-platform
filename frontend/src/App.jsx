@@ -4,6 +4,7 @@ import "./App.css";
 import AdminDashboard from "./components/AdminDashboard.jsx";
 import Footer from "./components/Footer.jsx";
 import Header from "./components/Header.jsx";
+import Sidebar from "./components/Sidebar.jsx";
 import LoginPanel from "./components/LoginPanel.jsx";
 import RegisterPanel from "./components/RegisterPanel.jsx";
 import StudentDashboard from "./components/StudentDashboard.jsx";
@@ -129,6 +130,7 @@ function App() {
   const [activeView, setActiveView] = useState("dashboard");
   const [showAuth, setShowAuth] = useState(false);
   const [authInitialView, setAuthInitialView] = useState("login");
+  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
 
   function handleLogin(session) {
     setUser(session);
@@ -165,17 +167,34 @@ function App() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-100" id="top">
-      <Header user={user} activeView={activeView} onLogout={handleLogout} onNavigate={setActiveView} />
-      <main className="mx-auto max-w-7xl px-6 py-8">
-        {user?.role === "STUDENT" && (
-          <StudentDashboard user={user} activeView={activeView} onNavigate={setActiveView} />
-        )}
-        {user?.role === "ADMIN" && (
-          <AdminDashboard user={user} activeView={activeView} onNavigate={setActiveView} />
-        )}
-      </main>
-      <Footer />
+    <div className="min-h-screen bg-slate-50 flex" id="top">
+      {user?.role === "STUDENT" && activeView !== "interview" && (
+        <Sidebar 
+          user={user} 
+          activeView={activeView} 
+          onNavigate={setActiveView} 
+          isVisible={isSidebarOpen} 
+          toggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)}
+        />
+      )}
+      <div className={`flex-1 flex flex-col min-w-0 transition-all duration-300 ${user?.role === "STUDENT" && activeView !== "interview" && isSidebarOpen ? "ml-[280px]" : "ml-0"}`}>
+        <Header 
+          user={user} 
+          activeView={activeView} 
+          onLogout={handleLogout} 
+          onNavigate={setActiveView} 
+          toggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)} 
+          isSidebarOpen={isSidebarOpen}
+        />
+        <main className="flex-1 px-8 py-6 max-w-[1400px] w-full mx-auto">
+          {user?.role === "STUDENT" && (
+            <StudentDashboard user={user} activeView={activeView} onNavigate={setActiveView} />
+          )}
+          {user?.role === "ADMIN" && (
+            <AdminDashboard user={user} activeView={activeView} onNavigate={setActiveView} />
+          )}
+        </main>
+      </div>
     </div>
   );
 }

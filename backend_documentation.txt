@@ -1,0 +1,45 @@
+# Backend Documentation: ATS, Job Matching, and Interview Question Generation
+
+This document outlines the core logic and external APIs used in the backend of the CareerVerse-AI platform, specifically focusing on Resume Analysis (ATS), Resume-Job Matching, and Interview Question Generation.
+
+## 1. Resume Text Extraction
+Before any analysis begins, the platform extracts text from uploaded resume documents using the `DocumentTextExtractor` service.
+- **Supported Formats**: PDF, DOCX, DOC, PPTX, PPT, and TXT.
+- **Libraries Used**: Apache PDFBox (for PDFs) and Apache POI (for Word and PowerPoint documents).
+
+## 2. ATS Resume Analysis (`ResumeAnalysisService.java`)
+The ATS (Applicant Tracking System) analysis evaluates a candidate's resume for readability and keyword density.
+
+- **Primary Approach (AI-Driven)**: 
+  The service sends the extracted resume text to the **Google Gemini API**. It prompts the model to return a structured JSON containing an ATS score (0-100), a professional summary, strengths, areas of improvement, and important keywords found or recommended.
+- **Fallback Approach (Local)**: 
+  If the Gemini API key is missing or the call fails, the system falls back to `localAtsAnalysis`. This method calculates a score out of 100 based on:
+  - **Keyword matching**: Checks against a predefined list of tech keywords (Java, Spring, React, etc.).
+  - **Resume length**: Scores based on the length of the document.
+  - **Structure**: Checks if standard sections (Experience, Projects, Skills, Education, Certifications) exist.
+
+## 3. Resume-Job Matching (`ResumeAnalysisService.java`)
+The Skill Gap analysis evaluates how well a resume fits a specific job description.
+
+- **Primary Approach (AI-Driven)**:
+  The service sends both the resume text and the job description to the **Google Gemini API**. It prompts the model to return a structured JSON containing a match score (0-100), a summary, a list of matched skills, missing skills, and an action plan (4 practical steps to close the gap).
+- **Fallback Approach (Local)**:
+  If the Gemini API is unavailable, `localSkillGapAnalysis` is used. It extracts matching keywords from both the job description and the resume using the predefined keyword list, and calculates the match score as a percentage of job description keywords found in the resume.
+
+## 4. Interview Question Generation (`QuestionGeneratorService.java`)
+The platform dynamically generates interview questions and manages the AI interviewer's persona.
+
+- **Question Generation**: 
+  Sends the resume text, target role, and difficulty level to the **Google Gemini API**. It prompts the AI to generate exactly 10 interview questions (a mix of technical, behavioral, and problem-solving) as a JSON array.
+- **Follow-up Questions**:
+  The `generateFollowUp` method can send a specific question and the candidate's answer to Gemini to dynamically determine if a follow-up question is necessary to probe deeper.
+- **Interviewer Intro**:
+  The `generateInterviewerIntro` method generates a warm, personalized opening statement from the "AI Interviewer" using the candidate's name, role, and difficulty level.
+- **Fallback Approach (Local)**:
+  If Gemini is down, the system provides a predefined list of 10 questions based on common roles (e.g., "Java Developer", "Full Stack", "Data Analyst"). It also provides a generic text-based introduction.
+
+## APIs Used
+- **Google Gemini API**: The platform heavily relies on the Gemini API for generative AI tasks.
+  - **Endpoint**: `https://generativelanguage.googleapis.com/v1beta/models/%s:generateContent`
+  - **Model**: Default is `gemini-1.5-flash` (configurable via `gemini.model` in `application.properties`).
+  - **Configuration**: Uses `gemini.api-key` from `application.properties`.

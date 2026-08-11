@@ -4,7 +4,7 @@ import {
   AlertCircle, CheckCircle2, ChevronRight, Loader2,
   Mic, MicOff, SkipForward, Square, Video, ShieldAlert
 } from "lucide-react";
-import { interviewApi } from "../services/api.js";
+import { interviewApi, speechApi } from "../services/api.js";
 import { FilesetResolver, FaceLandmarker } from "@mediapipe/tasks-vision";
 import LoadingDistractor, { Spinner } from "./ui/LoadingDistractor.jsx";
 
@@ -60,19 +60,49 @@ function formatTime(s) {
 }
 
 // ── TTS ───────────────────────────────────────────────────────────────────
-function speak(text) {
-  if (!window.speechSynthesis || !text) return;
-  window.speechSynthesis.cancel();
-  const voices = window.speechSynthesis.getVoices();
-  const utt = new SpeechSynthesisUtterance(text);
-  // Try to use a high-quality natural sounding English voice if available
-  const googleVoice = voices.find(v => v.name.includes("Google US English") || v.name.includes("Natural"));
-  if (googleVoice) {
-    utt.voice = googleVoice;
+let currentAudio = null;
+let currentSpeakId = 0;
+const audioCache = new Map();
+
+export function cancelSpeech() {
+  currentSpeakId++;
+  if (currentAudio) {
+    currentAudio.pause();
+    currentAudio = null;
   }
-  utt.rate = 0.95;
-  utt.pitch = 1;
-  window.speechSynthesis.speak(utt);
+  if (window.speechSynthesis) window.speechSynthesis.cancel();
+}
+
+export async function prefetchAudio(id, text, token) {
+  if (audioCache.has(id)) return audioCache.get(id);
+  try {
+    // Pad text to prevent Sarvam from cutting off first words due to Bluetooth/audio initialization
+    const paddedText = "Here is the question. " + text;
+    const blob = await speechApi.synthesizeSpeech(paddedText, token);
+    const url = URL.createObjectURL(blob);
+    audioCache.set(id, url);
+    return url;
+  } catch (err) {
+    console.error("Prefetch failed:", err);
+    return null;
+  }
+}
+
+export async function playAudio(id, text, token) {
+  cancelSpeech();
+  const speakId = currentSpeakId;
+  
+  let url = audioCache.get(id);
+  if (!url) {
+    url = await prefetchAudio(id, text, token);
+  }
+  
+  if (speakId !== currentSpeakId) return; // aborted during fetch
+  
+  if (url) {
+    currentAudio = new Audio(url);
+    currentAudio.play().catch(e => console.error("Audio play failed:", e));
+  }
 }
 
 // ── Main component ────────────────────────────────────────────────────────
@@ -83,10 +113,15 @@ function InterviewSession({ session: initialSession, token, onFinished }) {
   const [phase, setPhase] = useState("question"); // question | submitting | finishing
   const [error, setError] = useState("");
   const [showIntro, setShowIntro] = useState(!!initialSession.interviewerIntro);
+  const [isPreparingAudio, setIsPreparingAudio] = useState(false);
   const shownAtRef = useRef(null);
 
   const { transcript, setTranscript, listening, supported, start, stop, reset } =
     useSpeechRecognition();
+
+  const [mediaRecorder, setMediaRecorder] = useState(null);
+  const audioChunks = useRef([]);
+  const [isProcessingStt, setIsProcessingStt] = useState(false);
 
   // Proctor state counters
   const [faceState, setFaceState] = useState("Detected"); // Detected | Not Detected
@@ -381,7 +416,7 @@ function InterviewSession({ session: initialSession, token, onFinished }) {
   const [timeLeft, setTimeLeft] = useState(90);
 
   useEffect(() => {
-    if (phase !== "question" || showIntro) return;
+    if (phase !== "question" || showIntro || isPreparingAudio) return;
     const interval = setInterval(() => {
       setTimeLeft((t) => {
         if (t <= 1) {
@@ -393,7 +428,7 @@ function InterviewSession({ session: initialSession, token, onFinished }) {
       });
     }, 1000);
     return () => clearInterval(interval);
-  }, [currentIdx, phase, showIntro]);
+  }, [currentIdx, phase, showIntro, isPreparingAudio]);
 
   const handleTimeout = useCallback(() => {
     if (transcriptRef.current && transcriptRef.current.trim()) {
@@ -411,14 +446,45 @@ function InterviewSession({ session: initialSession, token, onFinished }) {
   // Speak question & mark shown when question changes
   useEffect(() => {
     if (showIntro || !currentQuestion) return;
-    shownAtRef.current = new Date().toISOString();
-    speak(currentQuestion.question);
-    interviewApi.markQuestionShown(session.sessionId, currentQuestion.id, token).catch(() => {});
+    
+    let isCancelled = false;
+    
+    async function initQuestion() {
+      if (!audioCache.has(currentQuestion.id)) {
+        setIsPreparingAudio(true);
+      }
+      
+      await prefetchAudio(currentQuestion.id, currentQuestion.question, token);
+      
+      if (isCancelled) return;
+      
+      setIsPreparingAudio(false);
+      shownAtRef.current = new Date().toISOString();
+      
+      playAudio(currentQuestion.id, currentQuestion.question, token);
+      interviewApi.markQuestionShown(session.sessionId, currentQuestion.id, token).catch(() => {});
+    }
+    
+    initQuestion();
+    
+    return () => {
+      isCancelled = true;
+      cancelSpeech();
+    };
   }, [currentQuestion?.id, showIntro]);
+
+  // Pre-fetch next question in the background
+  useEffect(() => {
+    if (showIntro || !currentQuestion) return;
+    const nextQ = questions[currentIdx + 1];
+    if (nextQ && !audioCache.has(nextQ.id)) {
+      prefetchAudio(nextQ.id, nextQ.question, token);
+    }
+  }, [currentIdx, questions, showIntro]);
 
   // Auto-mic activation (3.5s delay to allow question reading)
   useEffect(() => {
-    if (showIntro || !currentQuestion || phase !== "question") return;
+    if (showIntro || !currentQuestion || phase !== "question" || isPreparingAudio) return;
     setTimeLeft(90);
     
     if (supported) {
@@ -429,19 +495,52 @@ function InterviewSession({ session: initialSession, token, onFinished }) {
       }, 3500);
       return () => clearTimeout(micTimer);
     }
-  }, [currentIdx, showIntro, phase]);
+  }, [currentIdx, showIntro, phase, isPreparingAudio]);
 
   function handleBeginInterview() {
     setShowIntro(false);
   }
 
-  function handleStartRecording() {
-    window.speechSynthesis.cancel();
+  async function handleStartRecording() {
+    cancelSpeech();
     reset();
-    start();
+    
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const recorder = new MediaRecorder(stream, { mimeType: 'audio/webm' });
+      audioChunks.current = [];
+      recorder.ondataavailable = (e) => {
+        if (e.data.size > 0) audioChunks.current.push(e.data);
+      };
+      recorder.onstop = async () => {
+        stream.getTracks().forEach(track => track.stop());
+        const blob = new Blob(audioChunks.current, { type: 'audio/webm' });
+        setIsProcessingStt(true);
+        try {
+          const res = await speechApi.transcribeAudio(blob, token);
+          if (res.transcript) {
+            setTranscript(res.transcript); // Replace live STT with Groq accurate transcript
+          }
+        } catch (e) {
+          console.error("Groq STT failed", e);
+        } finally {
+          setIsProcessingStt(false);
+        }
+      };
+      setMediaRecorder(recorder);
+      recorder.start();
+      start(); // Start native live preview
+    } catch (e) {
+      console.error("Failed to start mic", e);
+    }
   }
 
-  function handleStopRecording() { stop(); }
+  function handleStopRecording() { 
+    stop(); 
+    if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+      mediaRecorder.stop();
+    }
+  }
 
   async function handleSubmitAnswer(answerText) {
     if (phase !== "question") return;
@@ -449,7 +548,7 @@ function InterviewSession({ session: initialSession, token, onFinished }) {
     if (!textToSubmit) return;
     
     stop();
-    window.speechSynthesis.cancel();
+    cancelSpeech();
     setPhase("submitting");
     setError("");
     
@@ -487,7 +586,7 @@ function InterviewSession({ session: initialSession, token, onFinished }) {
     if (phase !== "question") return;
     setError("");
     stop();
-    window.speechSynthesis.cancel();
+    cancelSpeech();
     try {
       await interviewApi.skipQuestion(session.sessionId, currentQuestion.id, token);
       setQuestions((prev) =>
@@ -512,7 +611,7 @@ function InterviewSession({ session: initialSession, token, onFinished }) {
 
   async function handleFinish() {
     stop();
-    window.speechSynthesis.cancel();
+    cancelSpeech();
     setPhase("finishing");
     setError("");
     try {
@@ -550,6 +649,7 @@ function InterviewSession({ session: initialSession, token, onFinished }) {
     return (
       <div className="max-w-3xl mx-auto pt-8">
         <InterviewerIntro
+          token={token}
           intro={initialSession.interviewerIntro}
           onBegin={handleBeginInterview}
           cameraActive={cameraActive}
@@ -615,7 +715,24 @@ function InterviewSession({ session: initialSession, token, onFinished }) {
 
         {/* Question Panel */}
         <AnimatePresence mode="wait">
-          {currentQuestion && phase === "question" && (
+          {currentQuestion && phase === "question" && isPreparingAudio && (
+            <motion.div
+              key={`loading-${currentQuestion.id}`}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm shadow-slate-200/60"
+            >
+              <LoadingDistractor
+                type="setup"
+                title="Preparing Audio"
+                subtitle="Synthesizing question audio via Sarvam AI..."
+                estimatedDuration={8000}
+              />
+            </motion.div>
+          )}
+
+          {currentQuestion && phase === "question" && !isPreparingAudio && (
             <motion.div
               key={currentQuestion.id}
               initial={{ opacity: 0, x: 24 }}
@@ -654,7 +771,13 @@ function InterviewSession({ session: initialSession, token, onFinished }) {
                     rows={5}
                     className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-800 placeholder-slate-400 outline-none resize-none transition-colors cursor-default select-none focus:ring-0"
                   />
-                  {listening && (
+                  {isProcessingStt && (
+                    <div className="absolute bottom-3 right-3 flex items-center gap-1.5 text-xs text-orange-500 font-medium">
+                      <span className="w-1.5 h-1.5 rounded-full bg-orange-500 animate-bounce" />
+                      Groq Transcribing...
+                    </div>
+                  )}
+                  {!isProcessingStt && listening && (
                     <div className="absolute bottom-3 right-3 flex items-center gap-1.5 text-xs text-red-500 font-medium">
                       <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse" />
                       Listening...
@@ -687,7 +810,7 @@ function InterviewSession({ session: initialSession, token, onFinished }) {
                   <button
                     type="button"
                     onClick={() => handleSubmitAnswer()}
-                    disabled={!transcript.trim()}
+                    disabled={!transcript.trim() || isProcessingStt}
                     className="flex items-center gap-2 rounded-xl bg-slate-800 hover:bg-slate-900 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition-all hover:scale-[1.02] disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:scale-100"
                   >
                     <MicOff className="h-4 w-4" /> Submit Answer
@@ -964,10 +1087,10 @@ function ProgressBar({ completed, total }) {
 }
 
 // ── Interviewer intro screen ──────────────────────────────────────────────
-function InterviewerIntro({ intro, onBegin, cameraActive, cameraError, videoRef, onRetryCamera }) {
+function InterviewerIntro({ token, intro, onBegin, cameraActive, cameraError, videoRef, onRetryCamera }) {
   useEffect(() => {
-    speak(intro);
-    return () => window.speechSynthesis.cancel();
+    playAudio('intro', intro, token);
+    return () => { cancelSpeech(); }
   }, [intro]);
 
   return (
@@ -1017,7 +1140,7 @@ function InterviewerIntro({ intro, onBegin, cameraActive, cameraError, videoRef,
 
       <div className="space-y-3">
         <button
-          onClick={() => { window.speechSynthesis.cancel(); onBegin(); }}
+          onClick={() => { cancelSpeech(); onBegin(); }}
           disabled={!cameraActive}
           className="rounded-xl bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 px-6 py-3 text-sm font-semibold text-white shadow-sm transition-all hover:scale-[1.02] disabled:opacity-40 disabled:scale-100 disabled:cursor-not-allowed"
         >

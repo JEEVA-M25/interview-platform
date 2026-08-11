@@ -153,3 +153,72 @@ export const interviewApi = {
     return response.blob()
   },
 }
+
+// ── AI API ────────────────────────────────────────────────────────────
+
+export const aiApi = {
+  getAtsHistory(token) {
+    return getJson('/api/ai/ats-history', token)
+  },
+  getJobMatchHistory(token) {
+    return getJson('/api/ai/job-match-history', token)
+  }
+}
+
+// ── SPEECH API ────────────────────────────────────────────────────────────
+
+export const speechApi = {
+  async synthesizeSpeech(text, token) {
+    const response = await fetch(`${API_BASE_URL}/api/speech/tts`, {
+      method: 'POST',
+      headers: authHeaders(token, 'application/json'),
+      body: JSON.stringify({ text }),
+    })
+    if (!response.ok) throw new Error('Failed to synthesize speech')
+    return response.blob()
+  },
+
+  async transcribeAudio(audioBlob, token) {
+    const formData = new FormData()
+    formData.append('file', audioBlob, 'audio.webm')
+    
+    const response = await fetch(`${API_BASE_URL}/api/speech/stt`, {
+      method: 'POST',
+      headers: authHeaders(token, null), // don't set Content-Type for FormData
+      body: formData,
+    })
+    
+    if (!response.ok) throw new Error('Failed to transcribe audio')
+    return response.json()
+  }
+}
+
+// ── DASHBOARD API ─────────────────────────────────────────────────────────
+
+export const dashboardApi = {
+  getSummary(token) {
+    return getJson('/api/dashboard/summary', token)
+  },
+  getScores(token) {
+    return getJson('/api/dashboard/scores', token)
+  }
+}
+
+// ── HISTORY API ───────────────────────────────────────────────────────────
+
+export const historyApi = {
+  getInterviews(token) {
+    return getJson('/api/interviews', token)
+  },
+  getInterviewDetails(id, token) {
+    return getJson(`/api/interviews/${id}`, token)
+  },
+  async downloadReport(id, token) {
+    const response = await fetch(`${API_BASE_URL}/api/interviews/${id}/report`, {
+      headers: authHeaders(token, null)
+    });
+    if (!response.ok) throw new Error("Failed to download report");
+    return response.blob();
+  }
+}
+

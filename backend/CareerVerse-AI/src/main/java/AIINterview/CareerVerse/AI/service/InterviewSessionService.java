@@ -304,6 +304,7 @@ public class InterviewSessionService {
         List<String> answerTexts = new ArrayList<>();
         List<InterviewReportResponse.QuestionResultDto> results = new ArrayList<>();
 
+        int totalScore = 0;
         for (InterviewQuestion q : questions) {
             InterviewAnswer a = q.getAnswer();
             questionTexts.add(q.getQuestion());
@@ -311,11 +312,14 @@ public class InterviewSessionService {
             String transcript = a != null ? a.getEffectiveTranscript() : "";
             answerTexts.add(transcript != null ? transcript : "");
 
+            int score = a != null && a.getScore() != null ? a.getScore() : 0;
+            totalScore += score;
+
             results.add(new InterviewReportResponse.QuestionResultDto(
                     q.getQuestion(),
                     a != null ? a.getRawTranscript() : "",
                     a != null ? a.getEditedTranscript() : null,
-                    a != null && a.getScore() != null ? a.getScore() : 0,
+                    score,
                     a != null ? a.getFeedback() : "",
                     a != null ? a.getStrengths() : "",
                     a != null ? a.getWeaknesses() : "",
@@ -328,7 +332,7 @@ public class InterviewSessionService {
         EvaluationService.FinalScores scores =
                 evaluationService.generateFinalScores(session.getRole(), questionTexts, answerTexts);
 
-        session.setOverallScore(scores.overall());
+        session.setOverallScore(totalScore);
         session.setTechnicalScore(scores.technical());
         session.setCommunicationScore(scores.communication());
         session.setProblemSolvingScore(scores.problemSolving());
@@ -363,7 +367,7 @@ public class InterviewSessionService {
 
         return new InterviewReportResponse(
                 session.getId(), session.getRole(), session.getDifficulty(),
-                scores.overall(), scores.technical(), scores.communication(),
+                totalScore, scores.technical(), scores.communication(),
                 scores.problemSolving(), scores.grammar(), scores.confidence(),
                 scores.recommendation(), scores.overallStrengths(), scores.overallWeaknesses(), results,
                 session.getIntegrityScore(), session.getWarningsCount(), session.getEyeContactPercentage(),

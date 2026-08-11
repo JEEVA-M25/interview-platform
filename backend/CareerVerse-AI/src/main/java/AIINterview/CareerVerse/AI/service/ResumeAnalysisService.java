@@ -2,8 +2,15 @@ package AIINterview.CareerVerse.AI.service;
 
 import AIINterview.CareerVerse.AI.dto.AtsScoreRequest;
 import AIINterview.CareerVerse.AI.dto.AtsScoreResponse;
+import AIINterview.CareerVerse.AI.dto.AtsHistoryDto;
 import AIINterview.CareerVerse.AI.dto.SkillGapRequest;
 import AIINterview.CareerVerse.AI.dto.SkillGapResponse;
+import AIINterview.CareerVerse.AI.dto.JobMatchHistoryDto;
+import AIINterview.CareerVerse.AI.model.AppUser;
+import AIINterview.CareerVerse.AI.model.AtsAnalysis;
+import AIINterview.CareerVerse.AI.model.JobMatchAnalysis;
+import AIINterview.CareerVerse.AI.repository.AtsAnalysisRepository;
+import AIINterview.CareerVerse.AI.repository.JobMatchAnalysisRepository;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -40,22 +47,80 @@ public class ResumeAnalysisService {
     private final String model;
     private final RestClient restClient;
     private final ObjectMapper objectMapper;
+    private final AtsAnalysisRepository atsAnalysisRepository;
+    private final JobMatchAnalysisRepository jobMatchAnalysisRepository;
+    private final S3StorageService s3StorageService;
 
     public ResumeAnalysisService(
             @Value("${gemini.api-key:}") String apiKey,
             @Value("${gemini.model:gemini-1.5-flash}") String model,
-            ObjectMapper objectMapper
+            ObjectMapper objectMapper,
+            AtsAnalysisRepository atsAnalysisRepository,
+            JobMatchAnalysisRepository jobMatchAnalysisRepository,
+            S3StorageService s3StorageService
     ) {
         this.apiKey = apiKey;
         this.model = model;
         this.objectMapper = objectMapper;
+        this.atsAnalysisRepository = atsAnalysisRepository;
+        this.jobMatchAnalysisRepository = jobMatchAnalysisRepository;
+        this.s3StorageService = s3StorageService;
         this.restClient = RestClient.builder()
                 .defaultHeader(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE)
                 .build();
     }
 
+    public List<AtsHistoryDto> getAtsHistory(String email) {
+        return atsAnalysisRepository.findByUser_EmailOrderByCreatedAtDesc(email)
+                .stream()
+                .map(analysis -> new AtsHistoryDto(
+                        analysis.getId(),
+                        analysis.getAtsScore(),
+                        analysis.getSummary(),
+                        analysis.getStrengths(),
+                        analysis.getImprovements(),
+                        analysis.getKeywords(),
+                        s3StorageService.generatePresignedUrl(analysis.getResumeS3Key()),
+                        analysis.getCreatedAt()
+                ))
+                .toList();
+    }
+
+    public List<JobMatchHistoryDto> getJobMatchHistory(String email) {
+        return jobMatchAnalysisRepository.findByUser_EmailOrderByCreatedAtDesc(email)
+                .stream()
+                .map(analysis -> new JobMatchHistoryDto(
+                        analysis.getId(),
+                        analysis.getMatchScore(),
+                        analysis.getSummary(),
+                        analysis.getMatchedSkills(),
+                        analysis.getMissingSkills(),
+                        analysis.getRecommendations(),
+                        analysis.getJobDescription(),
+                        s3StorageService.generatePresignedUrl(analysis.getResumeS3Key()),
+                        analysis.getCreatedAt()
+                ))
+                .toList();
+    }
+
     public AtsScoreResponse analyzeAtsScore(AtsScoreRequest request) {
         return analyzeAtsScore(request.resumeText());
+    }
+
+    public AtsScoreResponse analyzeAndSaveAtsScore(String resumeText, AppUser user, String resumeS3Key) {
+        AtsScoreResponse response = analyzeAtsScore(resumeText);
+        
+        AtsAnalysis analysis = new AtsAnalysis();
+        analysis.setUser(user);
+        analysis.setResumeS3Key(resumeS3Key);
+        analysis.setAtsScore(response.score());
+        analysis.setSummary(response.summary());
+        analysis.setStrengths(response.strengths());
+        analysis.setImprovements(response.improvements());
+        analysis.setKeywords(response.keywords());
+        
+        atsAnalysisRepository.save(analysis);
+        return response;
     }
 
     public AtsScoreResponse analyzeAtsScore(String resumeText) {
@@ -83,6 +148,23 @@ public class ResumeAnalysisService {
 
     public SkillGapResponse analyzeSkillGap(SkillGapRequest request) {
         return analyzeSkillGap(request.resumeText(), request.jobDescription());
+    }
+
+    public SkillGapResponse analyzeAndSaveSkillGap(String resumeText, String jobDescription, AppUser user, String resumeS3Key) {
+        SkillGapResponse response = analyzeSkillGap(resumeText, jobDescription);
+        
+        JobMatchAnalysis analysis = new JobMatchAnalysis();
+        analysis.setUser(user);
+        analysis.setResumeS3Key(resumeS3Key);
+        analysis.setJobDescription(jobDescription);
+        analysis.setMatchScore(response.matchScore());
+        analysis.setSummary(response.summary());
+        analysis.setMatchedSkills(response.matchedSkills());
+        analysis.setMissingSkills(response.missingSkills());
+        analysis.setRecommendations(response.actionPlan());
+        
+        jobMatchAnalysisRepository.save(analysis);
+        return response;
     }
 
     public SkillGapResponse analyzeSkillGap(String resumeText, String jobDescription) {
