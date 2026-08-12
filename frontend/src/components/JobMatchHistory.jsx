@@ -1,12 +1,13 @@
 import React, { useEffect, useState } from 'react';
 import { aiApi } from '../services/api';
 import PageHeader from './ui/PageHeader';
-import { BriefcaseBusiness, Calendar, ExternalLink, RefreshCw } from 'lucide-react';
+import { BriefcaseBusiness, Calendar, ExternalLink, RefreshCw, FileText, ChevronDown, ChevronUp, Download } from 'lucide-react';
 
 export default function JobMatchHistory({ user }) {
   const [history, setHistory] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [expandedResumeId, setExpandedResumeId] = useState(null);
 
   const fetchHistory = async () => {
     setLoading(true);
@@ -20,6 +21,25 @@ export default function JobMatchHistory({ user }) {
       setError("Failed to load history.");
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleDownload = async (url, filename) => {
+    try {
+      const response = await fetch(url);
+      if (!response.ok) throw new Error('Network response was not ok');
+      const blob = await response.blob();
+      const blobUrl = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = blobUrl;
+      link.download = filename || 'Resume.pdf';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(blobUrl);
+    } catch (error) {
+      console.warn("Direct download failed, opening in new tab", error);
+      window.open(url, '_blank');
     }
   };
 
@@ -60,24 +80,31 @@ export default function JobMatchHistory({ user }) {
             <div key={item.id} className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-4">
               <div className="flex justify-between items-start">
                 <div>
-                  <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-4">
                     <span className="text-sm text-slate-500 flex items-center gap-1.5">
                       <Calendar className="w-4 h-4" />
                       {new Date(item.createdAt).toLocaleDateString()}
                     </span>
+                    <span className="text-sm text-slate-500 flex items-center gap-1.5">
+                      <FileText className="w-4 h-4" />
+                      {item.resumeName || `${user?.fullName?.split(" ")[0] || "User"}'s Resume`}
+                    </span>
                   </div>
                   <h3 className="text-xl font-bold text-slate-900 mt-2">Match Score: {item.matchScore}%</h3>
                 </div>
-                {item.resumeUrl && (
-                  <a
-                    href={item.resumeUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
+                {item.resumeUrl ? (
+                  <button
+                    onClick={() => setExpandedResumeId(expandedResumeId === item.id ? null : item.id)}
                     className="flex items-center gap-2 px-4 py-2 bg-blue-50 text-blue-700 rounded-xl hover:bg-blue-100 transition-colors text-sm font-medium"
                   >
-                    <ExternalLink className="w-4 h-4" />
-                    View Resume
-                  </a>
+                    {expandedResumeId === item.id ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                    {expandedResumeId === item.id ? 'Hide Resume' : 'View Resume'}
+                  </button>
+                ) : (
+                  <button disabled className="flex items-center gap-2 px-4 py-2 bg-slate-50 text-slate-400 rounded-xl cursor-not-allowed text-sm font-medium border border-slate-200">
+                    <FileText className="w-4 h-4" />
+                    Resume Unavailable
+                  </button>
                 )}
               </div>
               
@@ -107,6 +134,31 @@ export default function JobMatchHistory({ user }) {
                   {item.recommendations?.map((r, i) => <li key={i}>{r}</li>)}
                 </ul>
               </div>
+              
+              {/* PDF Inline Viewer */}
+              {expandedResumeId === item.id && item.resumeUrl && (
+                <div className="mt-6 border-t border-slate-100 pt-6 animate-in slide-in-from-top-2 duration-300">
+                  <div className="flex justify-between items-center mb-4">
+                    <h4 className="text-sm font-semibold text-slate-700 flex items-center gap-2">
+                      <FileText className="w-4 h-4" />
+                      Resume Preview
+                    </h4>
+                    <div className="flex gap-4">
+                      <button onClick={() => setExpandedResumeId(null)} className="text-sm font-medium text-slate-600 hover:text-slate-800 flex items-center gap-1.5"><ChevronUp className="w-4 h-4"/> Hide Resume</button>
+                      <button onClick={() => handleDownload(item.resumeUrl, item.resumeName)} className="text-sm font-medium text-blue-600 hover:text-blue-800 flex items-center gap-1.5"><Download className="w-4 h-4"/> Download</button>
+                      <a href={item.resumeUrl} target="_blank" rel="noopener noreferrer" className="text-sm font-medium text-blue-600 hover:text-blue-800 flex items-center gap-1.5"><ExternalLink className="w-4 h-4"/> Open in new tab</a>
+                    </div>
+                  </div>
+                  <div className="w-full h-[600px] bg-slate-50 rounded-xl overflow-hidden border border-slate-200">
+                    <iframe src={`${item.resumeUrl}#view=FitH`} className="w-full h-full border-0" title="Resume PDF" />
+                  </div>
+                  <div className="mt-3 flex justify-end">
+                    <button onClick={() => setExpandedResumeId(null)} className="text-sm font-medium text-slate-500 hover:text-slate-700 flex items-center gap-1.5">
+                      <ChevronUp className="w-4 h-4"/> Hide Resume
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
           ))}
         </div>

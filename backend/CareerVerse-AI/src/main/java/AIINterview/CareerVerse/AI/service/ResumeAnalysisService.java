@@ -81,6 +81,7 @@ public class ResumeAnalysisService {
                         analysis.getImprovements(),
                         analysis.getKeywords(),
                         s3StorageService.generatePresignedUrl(analysis.getResumeS3Key()),
+                        analysis.getResumeFileName(),
                         analysis.getCreatedAt()
                 ))
                 .toList();
@@ -98,6 +99,7 @@ public class ResumeAnalysisService {
                         analysis.getRecommendations(),
                         analysis.getJobDescription(),
                         s3StorageService.generatePresignedUrl(analysis.getResumeS3Key()),
+                        analysis.getResumeFileName(),
                         analysis.getCreatedAt()
                 ))
                 .toList();
@@ -107,12 +109,13 @@ public class ResumeAnalysisService {
         return analyzeAtsScore(request.resumeText());
     }
 
-    public AtsScoreResponse analyzeAndSaveAtsScore(String resumeText, AppUser user, String resumeS3Key) {
+    public AtsScoreResponse analyzeAndSaveAtsScore(String resumeText, AppUser user, String resumeS3Key, String resumeName) {
         AtsScoreResponse response = analyzeAtsScore(resumeText);
         
         AtsAnalysis analysis = new AtsAnalysis();
         analysis.setUser(user);
         analysis.setResumeS3Key(resumeS3Key);
+        analysis.setResumeFileName(resumeName);
         analysis.setAtsScore(response.score());
         analysis.setSummary(response.summary());
         analysis.setStrengths(response.strengths());
@@ -150,12 +153,13 @@ public class ResumeAnalysisService {
         return analyzeSkillGap(request.resumeText(), request.jobDescription());
     }
 
-    public SkillGapResponse analyzeAndSaveSkillGap(String resumeText, String jobDescription, AppUser user, String resumeS3Key) {
+    public SkillGapResponse analyzeAndSaveSkillGap(String resumeText, String jobDescription, AppUser user, String resumeS3Key, String resumeName) {
         SkillGapResponse response = analyzeSkillGap(resumeText, jobDescription);
         
         JobMatchAnalysis analysis = new JobMatchAnalysis();
         analysis.setUser(user);
         analysis.setResumeS3Key(resumeS3Key);
+        analysis.setResumeFileName(resumeName);
         analysis.setJobDescription(jobDescription);
         analysis.setMatchScore(response.matchScore());
         analysis.setSummary(response.summary());

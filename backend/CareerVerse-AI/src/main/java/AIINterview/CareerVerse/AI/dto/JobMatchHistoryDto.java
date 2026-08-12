@@ -12,5 +12,6 @@ public record JobMatchHistoryDto(
         List<String> recommendations,
         String jobDescription,
         String resumeUrl,
+        String resumeName,
         LocalDateTime createdAt
 ) {}

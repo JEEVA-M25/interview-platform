@@ -11,5 +11,6 @@ public record AtsHistoryDto(
         List<String> improvements,
         List<String> keywords,
         String resumeUrl,
+        String resumeName,
         LocalDateTime createdAt
 ) {}

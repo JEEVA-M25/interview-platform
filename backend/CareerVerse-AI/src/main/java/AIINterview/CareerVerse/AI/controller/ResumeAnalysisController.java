@@ -54,8 +54,9 @@ public class ResumeAnalysisController {
         
         String resumeS3Key = s3StorageService.uploadResume(resume, user.getId());
         String resumeText = documentTextExtractor.extractText(resume);
+        String resumeName = resume.getOriginalFilename();
         
-        return resumeAnalysisService.analyzeAndSaveAtsScore(resumeText, user, resumeS3Key);
+        return resumeAnalysisService.analyzeAndSaveAtsScore(resumeText, user, resumeS3Key, resumeName);
     }
 
     @PostMapping("/skill-gap")
@@ -70,8 +71,9 @@ public class ResumeAnalysisController {
         
         String resumeS3Key = s3StorageService.uploadResume(resume, user.getId());
         String resumeText = documentTextExtractor.extractText(resume);
+        String resumeName = resume.getOriginalFilename();
         
-        return resumeAnalysisService.analyzeAndSaveSkillGap(resumeText, jobDescription, user, resumeS3Key);
+        return resumeAnalysisService.analyzeAndSaveSkillGap(resumeText, jobDescription, user, resumeS3Key, resumeName);
     }
 
     @GetMapping("/ats-history")

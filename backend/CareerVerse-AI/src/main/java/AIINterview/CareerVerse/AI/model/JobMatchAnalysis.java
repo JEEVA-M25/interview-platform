@@ -31,6 +31,9 @@ public class JobMatchAnalysis {
     @Column(name = "resume_s3_key")
     private String resumeS3Key;
 
+    @Column(name = "resume_file_name")
+    private String resumeFileName;
+
     @Column(name = "job_description", columnDefinition = "TEXT")
     private String jobDescription;
 
@@ -82,6 +85,14 @@ public class JobMatchAnalysis {
 
     public void setResumeS3Key(String resumeS3Key) {
         this.resumeS3Key = resumeS3Key;
+    }
+
+    public String getResumeFileName() {
+        return resumeFileName;
+    }
+
+    public void setResumeFileName(String resumeFileName) {
+        this.resumeFileName = resumeFileName;
     }
 
     public String getJobDescription() {
