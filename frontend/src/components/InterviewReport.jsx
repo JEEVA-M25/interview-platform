@@ -102,6 +102,17 @@ function QuestionRow({ result, index }) {
               <p className="text-sm text-slate-700 leading-relaxed">{result.feedback}</p>
             </div>
           )}
+          <div className="flex items-center gap-2 mt-2">
+            <Mic className="h-4 w-4 text-slate-400" />
+            <span className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Vocal Pattern:</span>
+            <span className="text-xs text-slate-700 font-medium">
+              {result.emotion ? (
+                <>{result.emotion.charAt(0).toUpperCase() + result.emotion.slice(1)} <span className="text-slate-400 font-normal">({(result.emotionConfidence * 100).toFixed(1)}% confidence)</span></>
+              ) : (
+                <span className="text-slate-400 italic">Not available</span>
+              )}
+            </span>
+          </div>
           <div className="grid grid-cols-2 gap-3">
             {result.strengths && (
               <div className="rounded-lg bg-emerald-50 border border-emerald-100 px-3 py-2">

@@ -161,8 +161,11 @@ public class InterviewSessionService {
         session.setCurrentQuestionIndex((int) answeredCount);
         sessionRepo.save(session);
 
-        // Decide follow-up directly from the answer (Single Gemini call)
-        String followUpText = questionGenerator.generateFollowUp(question.getQuestion(), request.transcript());
+        // Decide follow-up directly from the answer (Single Gemini call), only if the current question isn't already a follow-up
+        String followUpText = null;
+        if (!question.isFollowUp()) {
+            followUpText = questionGenerator.generateFollowUp(question.getQuestion(), request.transcript());
+        }
 
         QuestionDto followUpDto = null;
         if (followUpText != null) {
@@ -289,13 +292,14 @@ public class InterviewSessionService {
             // Save results sequentially on the main thread
             for (EvalTask task : tasks) {
                 if (task.result != null) {
-                    task.answer.setScore(task.result.score());
-                    task.answer.setFeedback(task.result.feedback());
-                    task.answer.setStrengths(task.result.strengths());
-                    task.answer.setWeaknesses(task.result.weaknesses());
-                    task.answer.setPromptTokens(task.result.promptTokens());
-                    task.answer.setCompletionTokens(task.result.completionTokens());
-                    answerRepo.save(task.answer);
+                    InterviewAnswer latestAnswer = answerRepo.findById(task.answer.getId()).orElse(task.answer);
+                    latestAnswer.setScore(task.result.score());
+                    latestAnswer.setFeedback(task.result.feedback());
+                    latestAnswer.setStrengths(task.result.strengths());
+                    latestAnswer.setWeaknesses(task.result.weaknesses());
+                    latestAnswer.setPromptTokens(task.result.promptTokens());
+                    latestAnswer.setCompletionTokens(task.result.completionTokens());
+                    answerRepo.save(latestAnswer);
                 }
             }
         }
@@ -325,7 +329,9 @@ public class InterviewSessionService {
                     a != null ? a.getWeaknesses() : "",
                     q.isFollowUp(),
                     q.getState().name(),
-                    q.getResponseTimeSeconds()
+                    q.getResponseTimeSeconds(),
+                    a != null ? a.getEmotion() : null,
+                    a != null ? a.getEmotionConfidence() : null
             ));
         }
 
@@ -406,7 +412,9 @@ public class InterviewSessionService {
                             a != null ? a.getWeaknesses() : "",
                             q.isFollowUp(),
                             q.getState().name(),
-                            q.getResponseTimeSeconds()
+                            q.getResponseTimeSeconds(),
+                            a != null ? a.getEmotion() : null,
+                            a != null ? a.getEmotionConfidence() : null
                     );
                 }).toList();
 

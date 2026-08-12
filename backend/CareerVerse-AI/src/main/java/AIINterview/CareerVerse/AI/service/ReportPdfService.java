@@ -260,6 +260,17 @@ public class ReportPdfService {
                 w.text("Response time: " + q.responseTimeSeconds() + "s", REGULAR, 8, SLATE_6, MARGIN + 8);
                 w.moveDown(10);
             }
+
+            // Emotion
+            if (q.emotion() != null && !q.emotion().isBlank()) {
+                w.moveDown(2);
+                w.text("Speech Emotion Analysis:", BOLD, 8, SLATE_9, MARGIN + 8);
+                w.moveDown(10);
+                String pattern = q.emotion().substring(0, 1).toUpperCase() + q.emotion().substring(1);
+                String conf = q.emotionConfidence() != null ? String.format("%.2f%%", q.emotionConfidence() * 100) : "N/A";
+                w.text("Dominant Vocal Pattern: " + pattern + "   |   Model Confidence: " + conf, REGULAR, 8, SLATE_6, MARGIN + 16);
+                w.moveDown(10);
+            }
         }
 
         // Divider

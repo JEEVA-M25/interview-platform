@@ -37,6 +37,11 @@ public class InterviewAnswer {
     private Integer promptTokens;
     private Integer completionTokens;
 
+    @Column(length = 50)
+    private String emotion;
+
+    private Double emotionConfidence;
+
     public Long getId() { return id; }
 
     public InterviewQuestion getQuestion() { return question; }
@@ -70,4 +75,10 @@ public class InterviewAnswer {
 
     public Integer getCompletionTokens() { return completionTokens; }
     public void setCompletionTokens(Integer completionTokens) { this.completionTokens = completionTokens; }
+
+    public String getEmotion() { return emotion; }
+    public void setEmotion(String emotion) { this.emotion = emotion; }
+
+    public Double getEmotionConfidence() { return emotionConfidence; }
+    public void setEmotionConfidence(Double emotionConfidence) { this.emotionConfidence = emotionConfidence; }
 }

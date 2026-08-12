@@ -201,13 +201,20 @@ function StudentDashboard({ user, activeView, onNavigate }) {
             </select>
           </div>
           
-          <div className="h-48 w-full bg-orange-50/30 rounded-xl border border-orange-50 mb-6 flex items-end justify-between px-4 pb-4">
+          <div className="h-56 w-full bg-slate-50/50 rounded-xl border border-slate-100 mb-6 flex items-end justify-between px-4 pb-4 relative overflow-hidden">
+            {/* Grid lines background */}
+            <div className="absolute inset-0 flex flex-col justify-between py-10 opacity-50 z-0 pointer-events-none">
+               <div className="w-full border-t border-slate-200 border-dashed"></div>
+               <div className="w-full border-t border-slate-200 border-dashed"></div>
+               <div className="w-full border-t border-slate-200 border-dashed"></div>
+               <div className="w-full border-t border-slate-200 border-dashed"></div>
+            </div>
             {/* Simple mock chart bars */}
             {[62, 68, 72, 76, 81, 88].map((val, i) => (
-              <div key={i} className="flex flex-col items-center gap-2 w-full">
-                <span className="text-[10px] font-bold text-slate-600">{val}%</span>
-                <div className="w-2 bg-orange-400 rounded-full" style={{ height: `${val}%` }}></div>
-                <span className="text-[10px] text-slate-400">May {10 + i * 7}</span>
+              <div key={i} className="flex flex-col items-center gap-2 w-full z-10 group">
+                <span className="text-[10px] font-bold text-indigo-700 bg-indigo-50 px-1.5 py-0.5 rounded-md shadow-sm transition-transform group-hover:-translate-y-1">{val}%</span>
+                <div className="w-8 lg:w-10 bg-gradient-to-t from-indigo-600 to-indigo-400 rounded-t-lg shadow-sm group-hover:from-indigo-500 group-hover:to-indigo-300 transition-colors" style={{ height: `${val}%` }}></div>
+                <span className="text-[10px] font-medium text-slate-500">May {10 + i * 7}</span>
               </div>
             ))}
           </div>
@@ -216,8 +223,8 @@ function StudentDashboard({ user, activeView, onNavigate }) {
             {[
               { label: "Highest Score", val: "88%", icon: "↑", color: "text-emerald-500", bg: "bg-emerald-50" },
               { label: "Lowest Score", val: "62%", icon: "↓", color: "text-red-500", bg: "bg-red-50" },
-              { label: "Average Score", val: "74%", icon: "○", color: "text-blue-500", bg: "bg-blue-50" },
-              { label: "Total Interviews", val: "5", icon: "⭐", color: "text-orange-500", bg: "bg-orange-50" },
+              { label: "Average Score", val: "74%", icon: "○", color: "text-indigo-500", bg: "bg-indigo-50" },
+              { label: "Total Interviews", val: "5", icon: "⭐", color: "text-amber-500", bg: "bg-amber-50" },
             ].map((st, i) => (
               <div key={i} className="flex flex-col items-center text-center">
                 <p className="text-[10px] font-semibold text-slate-500 mb-1">{st.label}</p>

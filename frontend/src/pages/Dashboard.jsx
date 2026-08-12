@@ -38,7 +38,7 @@ export default function Dashboard({ user, onNavigate }) {
 
   return (
     <div className="mx-auto max-w-6xl p-6">
-      <h1 className="mb-8 text-3xl font-bold text-white">Your Progress</h1>
+      <h1 className="mb-8 text-3xl font-bold text-slate-900">Your Progress</h1>
 
       <div className="mb-8 grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
         <ScoreCard title="Total Interviews" value={summary?.totalInterviews || 0} icon={Target} />
@@ -48,12 +48,12 @@ export default function Dashboard({ user, onNavigate }) {
       </div>
 
       <div className="mb-10">
-        <h2 className="mb-4 text-xl font-bold text-slate-200">Interview Scores Over Time</h2>
+        <h2 className="mb-4 text-xl font-bold text-slate-900">Interview Scores Over Time</h2>
         <ProgressChart scores={scores} />
       </div>
 
       <div>
-        <h2 className="mb-4 text-xl font-bold text-slate-200">Recent Interviews</h2>
+        <h2 className="mb-4 text-xl font-bold text-slate-900">Recent Interviews</h2>
         {recentInterviews.length > 0 ? (
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {recentInterviews.map((interview) => (
@@ -65,7 +65,7 @@ export default function Dashboard({ user, onNavigate }) {
             ))}
           </div>
         ) : (
-          <p className="text-slate-400">No interviews found. Start an interview to see history.</p>
+          <p className="text-slate-600">No interviews found. Start an interview to see history.</p>
         )}
       </div>
     </div>

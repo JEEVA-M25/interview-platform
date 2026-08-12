@@ -26,8 +26,8 @@ ChartJS.register(
 export default function ProgressChart({ scores }) {
   if (!scores || scores.length === 0) {
     return (
-      <div className="flex h-64 items-center justify-center rounded-xl bg-slate-900/50 border border-slate-800">
-        <p className="text-slate-400">No interview data available yet.</p>
+      <div className="flex h-64 items-center justify-center rounded-xl bg-white border border-slate-200 shadow-sm">
+        <p className="text-slate-500 font-medium">No interview data available yet.</p>
       </div>
     );
   }
@@ -38,15 +38,15 @@ export default function ProgressChart({ scores }) {
       {
         label: 'Overall Score',
         data: scores.map(s => s.score),
-        borderColor: '#f97316', // Orange-500
-        backgroundColor: 'rgba(249, 115, 22, 0.1)',
+        borderColor: '#6366f1', // Indigo-500
+        backgroundColor: 'rgba(99, 102, 241, 0.1)',
         borderWidth: 2,
         tension: 0.3,
         fill: true,
-        pointBackgroundColor: '#f97316',
+        pointBackgroundColor: '#6366f1',
         pointBorderColor: '#fff',
         pointHoverBackgroundColor: '#fff',
-        pointHoverBorderColor: '#f97316',
+        pointHoverBorderColor: '#6366f1',
         pointRadius: 4,
         pointHoverRadius: 6,
       },
@@ -59,10 +59,10 @@ export default function ProgressChart({ scores }) {
     plugins: {
       legend: { display: false },
       tooltip: {
-        backgroundColor: '#0f172a',
-        titleColor: '#f8fafc',
-        bodyColor: '#f1f5f9',
-        borderColor: '#334155',
+        backgroundColor: '#ffffff',
+        titleColor: '#0f172a',
+        bodyColor: '#334155',
+        borderColor: '#e2e8f0',
         borderWidth: 1,
         padding: 10,
         displayColors: false,
@@ -75,18 +75,18 @@ export default function ProgressChart({ scores }) {
       y: {
         beginAtZero: true,
         max: 100,
-        grid: { color: '#1e293b' },
-        ticks: { color: '#64748b' }
+        grid: { color: '#f1f5f9' },
+        ticks: { color: '#64748b', font: { weight: '500' } }
       },
       x: {
         grid: { display: false },
-        ticks: { color: '#64748b' }
+        ticks: { color: '#64748b', font: { weight: '500' } }
       }
     }
   };
 
   return (
-    <div className="h-72 w-full rounded-xl bg-slate-900 border border-slate-800 p-4">
+    <div className="h-72 w-full rounded-xl bg-white border border-slate-200 shadow-sm p-5">
       <Line data={data} options={options} />
     </div>
   );

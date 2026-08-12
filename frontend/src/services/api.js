@@ -1,5 +1,7 @@
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080'
 
+import { convertWebmToWav } from '../utils/audioUtils'
+
 async function request(path, options = {}) {
   const response = await fetch(`${API_BASE_URL}${path}`, options)
 
@@ -8,11 +10,12 @@ async function request(path, options = {}) {
     throw new Error(message || 'Request failed')
   }
 
-  if (response.status === 204) {
+  if (response.status === 204 || response.status === 202) {
     return null
   }
 
-  return response.json()
+  const text = await response.text()
+  return text ? JSON.parse(text) : null
 }
 
 function authHeaders(token, contentType = 'application/json') {
@@ -95,6 +98,20 @@ export const interviewApi = {
   /** POST /api/interview/sessions/{id}/answers */
   submitAnswer(sessionId, payload, token) {
     return postJson(`/api/interview/sessions/${sessionId}/answers`, payload, token)
+  },
+
+  /** POST /api/interview/answers/{answerId}/emotion */
+  async submitAnswerEmotion(answerId, audioBlobs, token) {
+    const formData = new FormData();
+    for (let idx = 0; idx < audioBlobs.length; idx++) {
+      const wavBlob = await convertWebmToWav(audioBlobs[idx]);
+      formData.append('file', wavBlob, `audio_${idx}.wav`);
+    }
+    return request(`/api/interview/answers/${answerId}/emotion`, {
+      method: 'POST',
+      headers: authHeaders(token, null), // let browser set multipart boundary
+      body: formData,
+    });
   },
 
   /** POST /api/interview/sessions/{id}/questions/{qId}/skip */

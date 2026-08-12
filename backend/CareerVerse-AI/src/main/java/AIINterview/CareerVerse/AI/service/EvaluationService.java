@@ -93,6 +93,8 @@ public class EvaluationService {
 
                 Candidate Answer: %s
 
+                Score the candidate out of 10. Be somewhat liberal and encouraging with the score (e.g. give 7-9 for decent answers, 5-6 for partial answers), but still properly allocate points based on technical accuracy.
+
                 Evaluate the answer and return only valid JSON, no markdown:
                 {
                   "score": <integer 1-10>,
@@ -137,7 +139,7 @@ public class EvaluationService {
                 Interview transcript:
                 %s
 
-                Score the candidate across these dimensions (each 0-100):
+                Score the candidate across these dimensions (each 0-100). Be somewhat liberal and encouraging with the scores (e.g. give 70-90 for decent overall performance, 50-60 for partial performance), but allocate properly based on the answers:
                 - technical: depth of technical knowledge
                 - communication: clarity and structure of answers
                 - problemSolving: logical thinking and approach

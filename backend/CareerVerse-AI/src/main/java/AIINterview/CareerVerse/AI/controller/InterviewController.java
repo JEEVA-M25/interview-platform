@@ -4,6 +4,7 @@ import AIINterview.CareerVerse.AI.dto.*;
 import AIINterview.CareerVerse.AI.service.DocumentTextExtractor;
 import AIINterview.CareerVerse.AI.service.InterviewSessionService;
 import AIINterview.CareerVerse.AI.service.ReportPdfService;
+import AIINterview.CareerVerse.AI.service.EmotionAnalysisService;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import org.springframework.http.HttpHeaders;
@@ -15,6 +16,7 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
 import java.security.Principal;
+import java.util.ArrayList;
 import java.util.List;
 
 @RestController
@@ -24,13 +26,16 @@ public class InterviewController {
     private final InterviewSessionService sessionService;
     private final DocumentTextExtractor textExtractor;
     private final ReportPdfService reportPdfService;
+    private final EmotionAnalysisService emotionService;
 
     public InterviewController(InterviewSessionService sessionService,
             DocumentTextExtractor textExtractor,
-            ReportPdfService reportPdfService) {
+            ReportPdfService reportPdfService,
+            EmotionAnalysisService emotionService) {
         this.sessionService = sessionService;
         this.textExtractor = textExtractor;
         this.reportPdfService = reportPdfService;
+        this.emotionService = emotionService;
     }
 
     /**
@@ -80,6 +85,28 @@ public class InterviewController {
             @Valid @RequestBody SubmitAnswerRequest request,
             Principal principal) {
         return sessionService.submitAnswer(principal.getName(), sessionId, request);
+    }
+
+    /**
+     * POST /api/interview/answers/{answerId}/emotion
+     * Async endpoint to trigger emotion analysis on the recorded audio.
+     */
+    @PostMapping(value = "/answers/{answerId}/emotion", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<Void> analyzeEmotion(
+            @PathVariable Long answerId,
+            @RequestParam("file") List<MultipartFile> files) {
+        try {
+            List<byte[]> filesBytes = new ArrayList<>();
+            for (MultipartFile file : files) {
+                if (!file.isEmpty()) {
+                    filesBytes.add(file.getBytes());
+                }
+            }
+            emotionService.analyzeEmotion(answerId, filesBytes);
+            return ResponseEntity.accepted().build();
+        } catch (IOException e) {
+            return ResponseEntity.internalServerError().build();
+        }
     }
 
     /**

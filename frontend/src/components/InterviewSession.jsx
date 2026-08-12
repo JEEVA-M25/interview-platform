@@ -8,51 +8,6 @@ import { interviewApi, speechApi } from "../services/api.js";
 import { FilesetResolver, FaceLandmarker } from "@mediapipe/tasks-vision";
 import LoadingDistractor, { Spinner } from "./ui/LoadingDistractor.jsx";
 
-// ── Speech Recognition ────────────────────────────────────────────────────
-const SpeechRecognition =
-  window.SpeechRecognition || window.webkitSpeechRecognition || null;
-
-function useSpeechRecognition() {
-  const recognitionRef = useRef(null);
-  const [transcript, setTranscript] = useState("");
-  const [listening, setListening] = useState(false);
-  const [supported] = useState(() => !!SpeechRecognition);
-
-  const start = useCallback(() => {
-    if (!SpeechRecognition) return;
-    // Cancel any active session before starting
-    recognitionRef.current?.stop();
-    
-    const rec = new SpeechRecognition();
-    rec.continuous = true;
-    rec.interimResults = true;
-    rec.lang = "en-US";
-    rec.onresult = (e) => {
-      let full = "";
-      for (let i = 0; i < e.results.length; i++) full += e.results[i][0].transcript;
-      setTranscript(full);
-    };
-    rec.onend = () => setListening(false);
-    rec.onerror = () => setListening(false);
-    recognitionRef.current = rec;
-    rec.start();
-    setListening(true);
-  }, []);
-
-  const stop = useCallback(() => {
-    recognitionRef.current?.stop();
-    setListening(false);
-  }, []);
-
-  const reset = useCallback(() => {
-    recognitionRef.current?.stop();
-    setTranscript("");
-    setListening(false);
-  }, []);
-
-  return { transcript, setTranscript, listening, supported, start, stop, reset };
-}
-
 // ── Timer formatting ──────────────────────────────────────────────────────
 function formatTime(s) {
   const m = Math.floor(s / 60);
@@ -108,7 +63,7 @@ export async function playAudio(id, text, token) {
 // ── Main component ────────────────────────────────────────────────────────
 function InterviewSession({ session: initialSession, token, onFinished }) {
   const [session] = useState(initialSession);
-  const [questions, setQuestions] = useState(initialSession.questions);
+  const [questions, setQuestions] = useState(initialSession.questions || []);
   const [currentIdx, setCurrentIdx] = useState(initialSession.currentQuestionIndex ?? 0);
   const [phase, setPhase] = useState("question"); // question | submitting | finishing
   const [error, setError] = useState("");
@@ -116,11 +71,12 @@ function InterviewSession({ session: initialSession, token, onFinished }) {
   const [isPreparingAudio, setIsPreparingAudio] = useState(false);
   const shownAtRef = useRef(null);
 
-  const { transcript, setTranscript, listening, supported, start, stop, reset } =
-    useSpeechRecognition();
+  const [transcript, setTranscript] = useState("");
+  const [isRecording, setIsRecording] = useState(false);
 
   const [mediaRecorder, setMediaRecorder] = useState(null);
   const audioChunks = useRef([]);
+  const [recordedBlobs, setRecordedBlobs] = useState([]);
   const [isProcessingStt, setIsProcessingStt] = useState(false);
 
   // Proctor state counters
@@ -486,15 +442,6 @@ function InterviewSession({ session: initialSession, token, onFinished }) {
   useEffect(() => {
     if (showIntro || !currentQuestion || phase !== "question" || isPreparingAudio) return;
     setTimeLeft(90);
-    
-    if (supported) {
-      const micTimer = setTimeout(() => {
-        if (phase === "question") {
-          start();
-        }
-      }, 3500);
-      return () => clearTimeout(micTimer);
-    }
   }, [currentIdx, showIntro, phase, isPreparingAudio]);
 
   function handleBeginInterview() {
@@ -503,7 +450,6 @@ function InterviewSession({ session: initialSession, token, onFinished }) {
 
   async function handleStartRecording() {
     cancelSpeech();
-    reset();
     
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
@@ -514,12 +460,14 @@ function InterviewSession({ session: initialSession, token, onFinished }) {
       };
       recorder.onstop = async () => {
         stream.getTracks().forEach(track => track.stop());
+        setIsRecording(false);
         const blob = new Blob(audioChunks.current, { type: 'audio/webm' });
+        setRecordedBlobs(prev => [...prev, blob]);
         setIsProcessingStt(true);
         try {
           const res = await speechApi.transcribeAudio(blob, token);
           if (res.transcript) {
-            setTranscript(res.transcript); // Replace live STT with Groq accurate transcript
+            setTranscript(prev => prev + (prev.trim() ? " " : "") + res.transcript.trim());
           }
         } catch (e) {
           console.error("Groq STT failed", e);
@@ -529,14 +477,13 @@ function InterviewSession({ session: initialSession, token, onFinished }) {
       };
       setMediaRecorder(recorder);
       recorder.start();
-      start(); // Start native live preview
+      setIsRecording(true);
     } catch (e) {
       console.error("Failed to start mic", e);
     }
   }
 
   function handleStopRecording() { 
-    stop(); 
     if (mediaRecorder && mediaRecorder.state !== 'inactive') {
       mediaRecorder.stop();
     }
@@ -547,7 +494,7 @@ function InterviewSession({ session: initialSession, token, onFinished }) {
     const textToSubmit = answerText || transcript.trim();
     if (!textToSubmit) return;
     
-    stop();
+    handleStopRecording();
     cancelSpeech();
     setPhase("submitting");
     setError("");
@@ -560,6 +507,13 @@ function InterviewSession({ session: initialSession, token, onFinished }) {
       };
       
       const eval_ = await interviewApi.submitAnswer(session.sessionId, payload, token);
+      
+      // OPTIONAL EMOTION ANALYSIS (Non-blocking)
+      if (recordedBlobs.length > 0 && eval_?.answerId) {
+        interviewApi.submitAnswerEmotion(eval_.answerId, recordedBlobs, token)
+          .catch(err => console.error("Emotion analysis request failed:", err));
+      }
+      setRecordedBlobs([]);
       
       setQuestions((prev) =>
         prev.map((q) => q.id === currentQuestion.id ? { ...q, state: "ANSWERED" } : q)
@@ -574,7 +528,7 @@ function InterviewSession({ session: initialSession, token, onFinished }) {
         });
       }
       
-      reset();
+      setTranscript("");
       advanceOrFinish();
     } catch (err) {
       setError(err.message || "Failed to submit answer.");
@@ -585,14 +539,15 @@ function InterviewSession({ session: initialSession, token, onFinished }) {
   async function handleSkipQuestion() {
     if (phase !== "question") return;
     setError("");
-    stop();
+    handleStopRecording();
     cancelSpeech();
     try {
       await interviewApi.skipQuestion(session.sessionId, currentQuestion.id, token);
       setQuestions((prev) =>
         prev.map((q) => q.id === currentQuestion.id ? { ...q, state: "SKIPPED" } : q)
       );
-      reset();
+      setTranscript("");
+      setRecordedBlobs([]);
       advanceOrFinish();
     } catch (err) {
       setError(err.message || "Failed to skip question.");
@@ -610,7 +565,7 @@ function InterviewSession({ session: initialSession, token, onFinished }) {
   }
 
   async function handleFinish() {
-    stop();
+    handleStopRecording();
     cancelSpeech();
     setPhase("finishing");
     setError("");
@@ -763,49 +718,50 @@ function InterviewSession({ session: initialSession, token, onFinished }) {
                   <textarea
                     value={transcript}
                     readOnly
-                    placeholder={
-                      supported
-                        ? "Speak your answer..."
-                        : "Speech recognition not supported."
-                    }
+                    placeholder="Speak your answer..."
                     rows={5}
-                    className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-800 placeholder-slate-400 outline-none resize-none transition-colors cursor-default select-none focus:ring-0"
+                    className={`w-full rounded-xl border bg-slate-50 px-4 py-3 text-sm text-slate-800 placeholder-slate-400 outline-none resize-none transition-colors focus:ring-0 cursor-default select-none ${isProcessingStt ? 'border-orange-200' : isRecording ? 'border-red-300 ring-2 ring-red-100' : 'border-slate-200'}`}
                   />
-                  {isProcessingStt && (
-                    <div className="absolute bottom-3 right-3 flex items-center gap-1.5 text-xs text-orange-500 font-medium">
-                      <span className="w-1.5 h-1.5 rounded-full bg-orange-500 animate-bounce" />
-                      Groq Transcribing...
+                  
+                  {isRecording && (
+                    <div className="absolute inset-0 rounded-xl bg-white/80 backdrop-blur-sm flex flex-col items-center justify-center z-10 transition-all">
+                       <div className="relative flex items-center justify-center w-20 h-20 mb-2">
+                          <div className="absolute inset-0 bg-red-400 rounded-full animate-ping opacity-30"></div>
+                          <div className="absolute inset-2 bg-red-500 rounded-full animate-pulse opacity-40"></div>
+                          <div className="relative z-10 flex items-center justify-center w-12 h-12 bg-red-500 text-white rounded-full shadow-md">
+                             <Mic className="h-6 w-6" />
+                          </div>
+                       </div>
+                       <p className="text-sm text-red-600 font-semibold animate-pulse tracking-wide">Listening...</p>
                     </div>
                   )}
-                  {!isProcessingStt && listening && (
-                    <div className="absolute bottom-3 right-3 flex items-center gap-1.5 text-xs text-red-500 font-medium">
-                      <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse" />
-                      Listening...
+
+                  {isProcessingStt && (
+                    <div className="absolute bottom-3 right-3 flex items-center gap-1.5 text-xs text-orange-500 font-medium z-10">
+                      <span className="w-1.5 h-1.5 rounded-full bg-orange-500 animate-bounce" />
+                      Transcribing...
                     </div>
                   )}
                 </div>
 
                 <div className="flex items-center gap-2 flex-wrap">
-                  {supported && (
-                    <>
-                      {!listening ? (
-                        <button
-                          type="button"
-                          onClick={handleStartRecording}
-                          className="flex items-center gap-2 rounded-xl bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition-all hover:scale-[1.02]"
-                        >
-                          <Mic className="h-4 w-4" /> Start Recording
-                        </button>
-                      ) : (
-                        <button
-                          type="button"
-                          onClick={handleStopRecording}
-                          className="flex items-center gap-2 rounded-xl bg-red-500 hover:bg-red-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition-all"
-                        >
-                          <Square className="h-4 w-4" /> Stop Recording
-                        </button>
-                      )}
-                    </>
+                  {!isRecording ? (
+                    <button
+                      type="button"
+                      onClick={handleStartRecording}
+                      disabled={isProcessingStt}
+                      className="flex items-center gap-2 rounded-xl bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition-all hover:scale-[1.02] disabled:opacity-50 disabled:hover:scale-100"
+                    >
+                      <Mic className="h-4 w-4" /> Start Recording
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={handleStopRecording}
+                      className="flex items-center gap-2 rounded-xl bg-red-500 hover:bg-red-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition-all"
+                    >
+                      <Square className="h-4 w-4" /> Finish Recording
+                    </button>
                   )}
                   <button
                     type="button"

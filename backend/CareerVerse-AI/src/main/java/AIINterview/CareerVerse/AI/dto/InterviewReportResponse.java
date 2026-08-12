@@ -35,7 +35,9 @@ public record InterviewReportResponse(
             String weaknesses,
             boolean isFollowUp,
             String state,
-            Integer responseTimeSeconds
+            Integer responseTimeSeconds,
+            String emotion,
+            Double emotionConfidence
     ) {}
 
     public record ProctorLogDto(
