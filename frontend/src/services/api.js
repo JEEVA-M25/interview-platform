@@ -250,5 +250,15 @@ export const readinessApi = {
       method: 'POST',
       headers: authHeaders(token, 'application/json')
     });
+  },
+  downloadStudyGuidePdf(token, studyGuideData) {
+    return fetch(`${API_BASE_URL}/api/student/readiness/study-guide/pdf`, {
+      method: 'POST',
+      headers: authHeaders(token, 'application/json'),
+      body: JSON.stringify(studyGuideData)
+    }).then(res => {
+      if (!res.ok) throw new Error('Failed to download PDF');
+      return res.blob();
+    });
   }
 }

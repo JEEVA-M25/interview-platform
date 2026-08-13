@@ -1,11 +1,12 @@
 import React, { useState } from 'react';
 import { readinessApi } from '../services/api';
-import { RefreshCw, Sparkles, BookOpen } from 'lucide-react';
+import { RefreshCw, Sparkles, BookOpen, Download } from 'lucide-react';
 import bg1 from '../assets/bg2.jpg';
 
 export default function Recommendations({ user }) {
   const [studyGuide, setStudyGuide] = useState(null);
   const [generatingGuide, setGeneratingGuide] = useState(false);
+  const [downloadingPdf, setDownloadingPdf] = useState(false);
   const [days, setDays] = useState(7);
 
   const handleGenerateGuide = async () => {
@@ -19,6 +20,27 @@ export default function Recommendations({ user }) {
       alert("Failed to generate study guide. Please try again.");
     } finally {
       setGeneratingGuide(false);
+    }
+  };
+
+  const handleDownloadPdf = async () => {
+    setDownloadingPdf(true);
+    try {
+      const token = user?.token || localStorage.getItem('token');
+      const blob = await readinessApi.downloadStudyGuidePdf(token, studyGuide);
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `Study_Plan_${studyGuide.days.length}_Days.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error("Failed to download PDF", err);
+      alert("Failed to download PDF. Please try again.");
+    } finally {
+      setDownloadingPdf(false);
     }
   };
 
@@ -89,9 +111,23 @@ export default function Recommendations({ user }) {
             <div className="absolute inset-0 bg-white/40 backdrop-blur-[2px]"></div>
 
             <div className="relative z-10">
-              <div className="flex items-center gap-3 mb-8 pb-4">
-                <BookOpen className="w-8 h-8 text-indigo-700 drop-shadow-md" />
-                <h3 className="text-3xl font-extrabold text-slate-900 drop-shadow-sm">Your {studyGuide.days.length}-Day Preparation Plan</h3>
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-8 pb-4 border-b border-indigo-100/50">
+                <div className="flex items-center gap-3">
+                  <BookOpen className="w-8 h-8 text-indigo-700 drop-shadow-md" />
+                  <h3 className="text-3xl font-extrabold text-slate-900 drop-shadow-sm">Your {studyGuide.days.length}-Day Preparation Plan</h3>
+                </div>
+                
+                <button
+                  onClick={handleDownloadPdf}
+                  disabled={downloadingPdf}
+                  className="flex items-center gap-2 px-5 py-2.5 bg-white text-indigo-700 font-bold rounded-xl shadow-sm border border-indigo-200 hover:bg-indigo-50 hover:shadow-md transition-all disabled:opacity-50"
+                >
+                  {downloadingPdf ? (
+                    <><RefreshCw className="w-5 h-5 animate-spin" /> Generating PDF...</>
+                  ) : (
+                    <><Download className="w-5 h-5" /> Download PDF</>
+                  )}
+                </button>
               </div>
 
               <div className="relative max-w-4xl border-l-2 border-dashed border-indigo-700/30 ml-4 sm:ml-8 space-y-8 py-4">

@@ -16,6 +16,7 @@ import java.awt.Color;
 import java.io.ByteArrayOutputStream;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
+import AIINterview.CareerVerse.AI.dto.StudyGuideResponse;
 
 @Service
 public class PdfGeneratorService {
@@ -848,5 +849,84 @@ public class PdfGeneratorService {
         }
 
         return value;
+    }
+
+    public byte[] generateStudyGuidePdf(StudyGuideResponse guide, String userName) {
+        try (ByteArrayOutputStream baos = new ByteArrayOutputStream()) {
+            Document document = new Document(PageSize.A4, 50, 50, 50, 50);
+            PdfWriter.getInstance(document, baos);
+            
+            document.open();
+            
+            // Fonts
+            Font titleFont = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 24, new Color(51, 65, 85));
+            Font subtitleFont = FontFactory.getFont(FontFactory.HELVETICA, 12, new Color(100, 116, 139));
+            Font dayHeaderFont = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 14, new Color(67, 56, 202));
+            Font dayFocusFont = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 12, new Color(30, 41, 59));
+            Font taskFont = FontFactory.getFont(FontFactory.HELVETICA, 11, new Color(71, 85, 105));
+            
+            // Header
+            Paragraph title = new Paragraph("CareerVerse Study Plan", titleFont);
+            title.setAlignment(Element.ALIGN_CENTER);
+            title.setSpacingAfter(10);
+            document.add(title);
+            
+            int totalDays = guide.days() != null ? guide.days().size() : 0;
+            String dateStr = java.time.LocalDate.now().format(java.time.format.DateTimeFormatter.ofPattern("MMM dd, yyyy"));
+            Paragraph subtitle = new Paragraph(String.format("Prepared for: %s | Date: %s | Duration: %d Days", userName, dateStr, totalDays), subtitleFont);
+            subtitle.setAlignment(Element.ALIGN_CENTER);
+            subtitle.setSpacingAfter(20);
+            document.add(subtitle);
+            
+            LineSeparator ls = new LineSeparator();
+            ls.setLineColor(new Color(226, 232, 240));
+            document.add(new Chunk(ls));
+            document.add(new Paragraph(" "));
+            
+            if (guide.days() != null) {
+                for (StudyGuideResponse.DayPlan day : guide.days()) {
+                    // Day Box
+                    PdfPTable table = new PdfPTable(1);
+                    table.setWidthPercentage(100);
+                    
+                    PdfPCell cell = new PdfPCell();
+                    cell.setBorderColor(new Color(226, 232, 240));
+                    cell.setBorderWidth(1);
+                    cell.setPadding(15);
+                    cell.setBackgroundColor(new Color(248, 250, 252));
+                    
+                    Paragraph dayHeader = new Paragraph("Day " + day.day(), dayHeaderFont);
+                    dayHeader.setSpacingAfter(5);
+                    cell.addElement(dayHeader);
+                    
+                    Paragraph focus = new Paragraph("Focus: " + day.focus(), dayFocusFont);
+                    focus.setSpacingAfter(10);
+                    cell.addElement(focus);
+                    
+                    com.lowagie.text.List taskList = new com.lowagie.text.List(com.lowagie.text.List.UNORDERED);
+                    taskList.setListSymbol("\u2022 ");
+                    taskList.setIndentationLeft(20);
+                    
+                    if (day.tasks() != null) {
+                        for (String task : day.tasks()) {
+                            ListItem item = new ListItem(task, taskFont);
+                            item.setSpacingAfter(5);
+                            taskList.add(item);
+                        }
+                    }
+                    
+                    cell.addElement(taskList);
+                    table.addCell(cell);
+                    
+                    document.add(table);
+                    document.add(new Paragraph(" ")); // Spacing between days
+                }
+            }
+            
+            document.close();
+            return baos.toByteArray();
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to generate PDF", e);
+        }
     }
 }
