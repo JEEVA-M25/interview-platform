@@ -371,6 +371,8 @@ public class InterviewSessionService {
             }
         }
 
+        VocalAnalysisDto vocalAnalysis = calculateVocalAnalysis(results);
+
         return new InterviewReportResponse(
                 session.getId(), session.getRole(), session.getDifficulty(),
                 totalScore, scores.technical(), scores.communication(),
@@ -378,7 +380,8 @@ public class InterviewSessionService {
                 scores.recommendation(), scores.overallStrengths(), scores.overallWeaknesses(), results,
                 session.getIntegrityScore(), session.getWarningsCount(), session.getEyeContactPercentage(),
                 session.getFacePresentPercentage(), session.getMultipleFacesDetected(), session.getPhoneChecked(),
-                session.getTabSwitches(), proctorLogDtos
+                session.getTabSwitches(), proctorLogDtos, vocalAnalysis.overallEmotion(), vocalAnalysis.averageEmotionConfidence(),
+                vocalAnalysis.analyzedAnswers(), vocalAnalysis.totalAnswers()
         );
     }
 
@@ -430,6 +433,8 @@ public class InterviewSessionService {
             }
         }
 
+        VocalAnalysisDto vocalAnalysis = calculateVocalAnalysis(results);
+
         return new InterviewReportResponse(
                 session.getId(), session.getRole(), session.getDifficulty(),
                 orZero(session.getOverallScore()), orZero(session.getTechnicalScore()),
@@ -438,7 +443,8 @@ public class InterviewSessionService {
                 session.getOverallRecommendation(), List.of(), List.of(), results,
                 session.getIntegrityScore(), session.getWarningsCount(), session.getEyeContactPercentage(),
                 session.getFacePresentPercentage(), session.getMultipleFacesDetected(), session.getPhoneChecked(),
-                session.getTabSwitches(), proctorLogDtos
+                session.getTabSwitches(), proctorLogDtos, vocalAnalysis.overallEmotion(), vocalAnalysis.averageEmotionConfidence(),
+                vocalAnalysis.analyzedAnswers(), vocalAnalysis.totalAnswers()
         );
     }
 
@@ -486,7 +492,32 @@ public class InterviewSessionService {
         );
     }
 
-    private int orZero(Integer value) {
-        return value == null ? 0 : value;
+    private int orZero(Integer v) {
+        return v != null ? v : 0;
     }
+
+    private VocalAnalysisDto calculateVocalAnalysis(List<InterviewReportResponse.QuestionResultDto> results) {
+        List<InterviewReportResponse.QuestionResultDto> analyzedAnswers = results.stream()
+                .filter(q -> q.emotion() != null && !q.emotion().isBlank() && q.emotionConfidence() != null)
+                .toList();
+
+        String overallEmotion = null;
+        Double averageEmotionConfidence = null;
+        if (!analyzedAnswers.isEmpty()) {
+            overallEmotion = analyzedAnswers.stream()
+                    .collect(java.util.stream.Collectors.groupingBy(InterviewReportResponse.QuestionResultDto::emotion, java.util.stream.Collectors.counting()))
+                    .entrySet().stream()
+                    .max(java.util.Map.Entry.comparingByValue())
+                    .map(java.util.Map.Entry::getKey)
+                    .orElse(null);
+
+            averageEmotionConfidence = analyzedAnswers.stream()
+                    .mapToDouble(InterviewReportResponse.QuestionResultDto::emotionConfidence)
+                    .average()
+                    .orElse(0.0);
+        }
+        return new VocalAnalysisDto(overallEmotion, averageEmotionConfidence, analyzedAnswers.size(), results.size());
+    }
+
+    private record VocalAnalysisDto(String overallEmotion, Double averageEmotionConfidence, Integer analyzedAnswers, Integer totalAnswers) {}
 }

@@ -239,3 +239,16 @@ export const historyApi = {
   }
 }
 
+// ── READINESS API ─────────────────────────────────────────────────────────
+
+export const readinessApi = {
+  getReadiness(token) {
+    return getJson('/api/student/readiness', token)
+  },
+  generateStudyGuide(token) {
+    return request('/api/student/readiness/study-guide', {
+      method: 'POST',
+      headers: authHeaders(token, 'application/json')
+    });
+  }
+}

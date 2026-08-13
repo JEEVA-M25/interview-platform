@@ -193,6 +193,26 @@ export default function InterviewDetail({ sessionId, onBack, user }) {
             </div>
           </div>
 
+          <div className="bg-white rounded-3xl border border-slate-200 shadow-sm p-6 sm:p-8">
+            <h3 className="text-lg font-bold text-slate-900 flex items-center gap-2 mb-6">
+              <span className="text-xl">🎙️</span> Vocal Analysis
+            </h3>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
+              <div>
+                <p className="text-sm font-bold text-slate-500 uppercase tracking-wider mb-1">Overall Vocal Pattern</p>
+                <p className="text-lg font-extrabold text-slate-900">{report.overallEmotion ? `🎙️ ${report.overallEmotion}` : 'Not Available'}</p>
+              </div>
+              <div>
+                <p className="text-sm font-bold text-slate-500 uppercase tracking-wider mb-1">Average Emotion Confidence</p>
+                <p className="text-lg font-extrabold text-slate-900">{report.averageEmotionConfidence ? `${(report.averageEmotionConfidence * 100).toFixed(1)}%` : 'N/A'}</p>
+              </div>
+              <div>
+                <p className="text-sm font-bold text-slate-500 uppercase tracking-wider mb-1">Analyzed Answers</p>
+                <p className="text-lg font-extrabold text-slate-900">{report.analyzedAnswers || 0} / {report.totalAnswers || 0}</p>
+              </div>
+            </div>
+          </div>
+
           <div className="bg-white rounded-3xl border border-slate-200 shadow-sm p-6 sm:p-8 flex-1">
             <h3 className="text-lg font-bold text-slate-900 mb-6">Score by dimension</h3>
             <div className="space-y-6">
@@ -242,13 +262,17 @@ export default function InterviewDetail({ sessionId, onBack, user }) {
                       <p className="font-bold text-slate-900 leading-snug">
                         {q.question}
                       </p>
-                      <div className="flex items-center gap-3 mt-2">
+                      <div className="flex flex-wrap items-center gap-3 mt-2">
                         <span className={`text-xs font-bold px-2 py-1 rounded-md ${
                           q.score >= 8 ? 'bg-emerald-50 text-emerald-600' 
                           : q.score >= 5 ? 'bg-amber-50 text-amber-600' 
                           : 'bg-red-50 text-red-600'
                         }`}>
-                          Score: {q.score}/10
+                          {q.score}/10
+                        </span>
+                        
+                        <span className="text-xs font-bold px-2 py-1 rounded-md bg-slate-100 text-slate-600">
+                          {q.emotion ? `🎙️ ${q.emotion} · ${(q.emotionConfidence * 100).toFixed(1)}%` : `🎙️ Vocal analysis unavailable`}
                         </span>
                         {q.isFollowUp && (
                           <span className="text-[10px] font-bold px-2 py-1 rounded-md bg-indigo-50 text-indigo-600 uppercase">

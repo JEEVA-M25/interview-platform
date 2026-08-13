@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
-import { ArrowRight, BadgeCheck, BriefcaseBusiness, Clock3, Sparkles, UserCircle2, FileText, BrainCircuit, TrendingUp, LayoutGrid, Crown } from "lucide-react";
+import { ArrowRight, BadgeCheck, BriefcaseBusiness, Clock3, Sparkles, UserCircle2, FileText, BrainCircuit, TrendingUp, LayoutGrid, Crown, Mic } from "lucide-react";
 import AtsAnalyzer from "./AtsAnalyzer.jsx";
 import Interview from "./Interview.jsx";
 import SkillGapAnalyzer from "./SkillGapAnalyzer.jsx";
@@ -8,12 +8,14 @@ import DashboardCard from "./ui/DashboardCard.jsx";
 import EmptyState from "./ui/EmptyState.jsx";
 import PageHeader from "./ui/PageHeader.jsx";
 import SectionHeader from "./ui/SectionHeader.jsx";
-import { getJson, putJson } from "../services/api.js";
+import { getJson, putJson, aiApi, interviewApi } from "../services/api.js";
 import Dashboard from "../pages/Dashboard.jsx";
 import InterviewHistory from "../pages/InterviewHistory.jsx";
 import InterviewDetail from "../pages/InterviewDetail.jsx";
 import AtsHistory from "./AtsHistory.jsx";
 import JobMatchHistory from "./JobMatchHistory.jsx";
+import PlacementReadiness from "../pages/PlacementReadiness.jsx";
+import Recommendations from "../pages/Recommendations.jsx";
 
 const emptyProfile = {
   fullName: "", phone: "", college: "", degree: "",
@@ -30,6 +32,16 @@ function StudentDashboard({ user, activeView, onNavigate }) {
   const [status, setStatus] = useState("loading");
   const [message, setMessage] = useState("");
 
+  const [dashData, setDashData] = useState({
+    atsCount: 0,
+    jobMatchCount: 0,
+    interviewCount: 0,
+    recentAts: null,
+    recentJobMatch: null,
+    recentInterview: null,
+    loading: true
+  });
+
   useEffect(() => {
     async function loadProfile() {
       try {
@@ -43,6 +55,41 @@ function StudentDashboard({ user, activeView, onNavigate }) {
     }
     loadProfile();
   }, [user.token]);
+
+  useEffect(() => {
+    if (activeView === "dashboard") {
+      async function loadDashboard() {
+        try {
+          const [ats, jobs, allInterviews] = await Promise.all([
+            aiApi.getAtsHistory(user.token).catch(() => []),
+            aiApi.getJobMatchHistory(user.token).catch(() => []),
+            interviewApi.getSessions(user.token).catch(() => [])
+          ]);
+          
+          const completedInterviews = (allInterviews || []).filter(i => i.status === 'COMPLETED');
+
+          setDashData({
+            atsCount: ats?.length || 0,
+            jobMatchCount: jobs?.length || 0,
+            interviewCount: completedInterviews.length,
+            recentAts: ats?.length > 0 ? ats[0] : null,
+            recentJobMatch: jobs?.length > 0 ? jobs[0] : null,
+            recentInterview: completedInterviews.length > 0 ? completedInterviews[0] : null,
+            loading: false
+          });
+        } catch (error) {
+          console.error("Dashboard data load error:", error);
+          setDashData(prev => ({ ...prev, loading: false }));
+        }
+      }
+      loadDashboard();
+    }
+  }, [activeView, user.token]);
+
+  const profileFields = ["fullName", "phone", "college", "degree", "graduationYear", "portfolioUrl", "linkedinUrl", "careerGoal"];
+  const filledFields = profileFields.filter(f => profile[f] && profile[f].trim() !== "").length;
+  const profileCompletion = Math.round((filledFields / profileFields.length) * 100) || 0;
+
 
   async function handleSubmit(event) {
     event.preventDefault();
@@ -138,214 +185,163 @@ function StudentDashboard({ user, activeView, onNavigate }) {
   if (activeView === "ats-history") return <AtsHistory user={user} onNavigate={onNavigate} />;
   if (activeView === "job-match-history") return <JobMatchHistory user={user} onNavigate={onNavigate} />;
   if (activeView === "history") return <InterviewHistory user={user} onNavigate={onNavigate} />;
+  if (activeView === "readiness") return <PlacementReadiness user={user} onNavigate={onNavigate} />;
+  if (activeView === "recommendations") return <Recommendations user={user} />;
+
   if (activeView.startsWith("history/")) {
     const sessionId = activeView.split("/")[1];
     return <InterviewDetail sessionId={sessionId} onBack={() => onNavigate("history")} user={user} />;
   }
 
   return (
-    <div className="space-y-6 pb-12 w-full max-w-full">
-      {/* 1. WELCOME BANNER */}
-      <div className="flex flex-col xl:flex-row items-center justify-between bg-white rounded-3xl p-8 border border-slate-100 shadow-sm shadow-slate-200/50 gap-6">
-        <div>
-          <h1 className="text-3xl font-extrabold text-slate-900 mb-2">Good morning, {user?.fullName?.split(" ")[0] || "Student"}! 👋</h1>
-          <p className="text-slate-500 font-medium">Track your progress and take the next step toward your dream career.</p>
-        </div>
-        
-        {/* Placeholder for illustration */}
-        <div className="hidden xl:flex items-center justify-center w-48 h-24">
-          <div className="relative">
-            <div className="absolute -top-4 -left-4 w-8 h-16 bg-indigo-500 rounded-t-lg"></div>
-            <div className="absolute top-0 left-6 w-8 h-20 bg-emerald-500 rounded-t-lg"></div>
-            <div className="absolute -top-8 left-16 w-8 h-24 bg-orange-500 rounded-t-lg"></div>
-          </div>
-        </div>
+    <div className="space-y-6 pb-12 w-full max-w-5xl mx-auto animate-in fade-in slide-in-from-bottom-4 duration-500">
+      {/* 1. WELCOME SECTION */}
+      <div className="bg-white rounded-3xl p-8 border border-slate-200 shadow-sm">
+        <h1 className="text-3xl font-extrabold text-slate-900 mb-2">
+          Welcome back, {user?.fullName?.split(" ")[0] || "Student"} 👋
+        </h1>
+        <p className="text-slate-500 font-medium">Keep improving your placement preparation.</p>
+      </div>
 
-              </div>
-
-      {/* 2. STATS ROW */}
-      <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
+      {/* 2. ACTIVITY METRICS */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {[
-          { title: "Resume Analyses", val: "3", sub: "↑ 50% this month", color: "text-orange-500", bg: "bg-orange-50", icon: FileText, subColor: "text-emerald-500" },
-          { title: "ATS Score", val: "82", sub: "↑ 12% improvement", color: "text-emerald-500", bg: "bg-emerald-50", icon: BadgeCheck, subColor: "text-emerald-500" },
-          { title: "Interviews Completed", val: "5", sub: "↑ 2 this month", color: "text-indigo-500", bg: "bg-indigo-50", icon: BrainCircuit, subColor: "text-emerald-500" },
-          { title: "Avg Interview Score", val: "78%", sub: "↑ 8% improvement", color: "text-blue-500", bg: "bg-blue-50", icon: TrendingUp, subColor: "text-emerald-500" },
-          { title: "Profile Completion", val: "45%", sub: "Complete your profile", color: "text-red-500", bg: "bg-red-50", icon: UserCircle2, subColor: "text-red-500" },
+          { title: "ATS Analyses", val: dashData.atsCount, icon: FileText, color: "text-indigo-600", bg: "bg-indigo-50" },
+          { title: "Job Matches", val: dashData.jobMatchCount, icon: BriefcaseBusiness, color: "text-blue-600", bg: "bg-blue-50" },
+          { title: "AI Interviews", val: dashData.interviewCount, icon: BrainCircuit, color: "text-emerald-600", bg: "bg-emerald-50" },
+          { title: "Profile Completion", val: `${profileCompletion}%`, icon: UserCircle2, color: "text-orange-600", bg: "bg-orange-50" },
         ].map((stat, i) => (
-          <div key={i} className="bg-white rounded-2xl border border-slate-100 p-5 shadow-sm flex flex-col justify-between">
-            <div className="flex items-center gap-3 mb-4">
-              <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${stat.bg} ${stat.color}`}>
-                <stat.icon className="w-5 h-5" />
-              </div>
-              <h3 className="text-xs font-semibold text-slate-500">{stat.title}</h3>
+          <div key={i} className="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm flex items-center gap-4">
+            <div className={`w-12 h-12 rounded-xl flex items-center justify-center shrink-0 ${stat.bg} ${stat.color}`}>
+              <stat.icon className="w-6 h-6" />
             </div>
             <div>
-              <p className="text-3xl font-extrabold text-slate-900">{stat.val}</p>
-              <p className={`text-xs font-semibold mt-2 ${stat.subColor}`}>{stat.sub}</p>
+              <p className="text-2xl font-extrabold text-slate-900">{dashData.loading ? "..." : stat.val}</p>
+              <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wide mt-1">{stat.title}</h3>
             </div>
           </div>
         ))}
       </div>
 
-      {/* 3. MIDDLE ROW */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        
-        {/* Progress Dashboard */}
-        <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6 lg:col-span-1 xl:col-span-1">
-          <div className="flex items-center justify-between mb-6">
-            <h3 className="text-lg font-bold text-slate-900 flex items-center gap-2">
-              <TrendingUp className="w-5 h-5 text-indigo-500" /> Progress Dashboard
-            </h3>
-            <select className="text-xs font-semibold bg-slate-50 border border-slate-200 rounded-lg px-2 py-1 outline-none text-slate-600">
-              <option>Last 6 Interviews</option>
-            </select>
-          </div>
-          
-          <div className="h-56 w-full bg-slate-50/50 rounded-xl border border-slate-100 mb-6 flex items-end justify-between px-4 pb-4 relative overflow-hidden">
-            {/* Grid lines background */}
-            <div className="absolute inset-0 flex flex-col justify-between py-10 opacity-50 z-0 pointer-events-none">
-               <div className="w-full border-t border-slate-200 border-dashed"></div>
-               <div className="w-full border-t border-slate-200 border-dashed"></div>
-               <div className="w-full border-t border-slate-200 border-dashed"></div>
-               <div className="w-full border-t border-slate-200 border-dashed"></div>
+      {/* 3. QUICK ACTIONS */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        {[
+          { 
+            title: "Analyze Your Resume", 
+            desc: "Check your resume and identify ATS improvements.", 
+            view: "ats-score", 
+            icon: FileText, 
+            bg: "bg-indigo-50", 
+            color: "text-indigo-600",
+            hoverRing: "group-hover:border-indigo-200"
+          },
+          { 
+            title: "Match a Job", 
+            desc: "Compare your resume with a job description and identify skill gaps.", 
+            view: "job-applications", 
+            icon: BriefcaseBusiness, 
+            bg: "bg-blue-50", 
+            color: "text-blue-600",
+            hoverRing: "group-hover:border-blue-200"
+          },
+          { 
+            title: "Practice with AI", 
+            desc: "Take a role-specific mock interview and receive instant feedback.", 
+            view: "interview", 
+            icon: Mic, 
+            bg: "bg-emerald-50", 
+            color: "text-emerald-600",
+            hoverRing: "group-hover:border-emerald-200"
+          },
+          { 
+            title: "Check Placement Readiness", 
+            desc: "View your overall readiness, strengths, weaknesses, and personalized study plan.", 
+            view: "readiness", 
+            icon: Crown, 
+            bg: "bg-amber-50", 
+            color: "text-amber-600",
+            hoverRing: "group-hover:border-amber-200"
+          },
+        ].map((action, i) => (
+          <button 
+            key={i} 
+            onClick={() => onNavigate(action.view)} 
+            className={`group bg-white rounded-2xl border border-slate-200 shadow-sm p-6 flex items-start gap-5 text-left transition-all duration-300 hover:shadow-md hover:-translate-y-1 ${action.hoverRing}`}
+          >
+            <div className={`w-12 h-12 rounded-xl flex items-center justify-center shrink-0 ${action.bg} ${action.color} transition-transform group-hover:scale-110`}>
+              <action.icon className="w-6 h-6" />
             </div>
-            {/* Simple mock chart bars */}
-            {[62, 68, 72, 76, 81, 88].map((val, i) => (
-              <div key={i} className="flex flex-col items-center gap-2 w-full z-10 group">
-                <span className="text-[10px] font-bold text-indigo-700 bg-indigo-50 px-1.5 py-0.5 rounded-md shadow-sm transition-transform group-hover:-translate-y-1">{val}%</span>
-                <div className="w-8 lg:w-10 bg-gradient-to-t from-indigo-600 to-indigo-400 rounded-t-lg shadow-sm group-hover:from-indigo-500 group-hover:to-indigo-300 transition-colors" style={{ height: `${val}%` }}></div>
-                <span className="text-[10px] font-medium text-slate-500">May {10 + i * 7}</span>
-              </div>
-            ))}
-          </div>
-
-          <div className="grid grid-cols-4 gap-2">
-            {[
-              { label: "Highest Score", val: "88%", icon: "↑", color: "text-emerald-500", bg: "bg-emerald-50" },
-              { label: "Lowest Score", val: "62%", icon: "↓", color: "text-red-500", bg: "bg-red-50" },
-              { label: "Average Score", val: "74%", icon: "○", color: "text-indigo-500", bg: "bg-indigo-50" },
-              { label: "Total Interviews", val: "5", icon: "⭐", color: "text-amber-500", bg: "bg-amber-50" },
-            ].map((st, i) => (
-              <div key={i} className="flex flex-col items-center text-center">
-                <p className="text-[10px] font-semibold text-slate-500 mb-1">{st.label}</p>
-                <div className="flex items-center gap-1">
-                  <p className="text-lg font-bold text-slate-900">{st.val}</p>
-                  <span className={`w-4 h-4 rounded-full flex items-center justify-center text-[10px] ${st.bg} ${st.color}`}>{st.icon}</span>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* Recent Activity */}
-        <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6 flex flex-col">
-          <div className="flex items-center justify-between mb-6">
-            <h3 className="text-lg font-bold text-slate-900 flex items-center gap-2">
-              <Clock3 className="w-5 h-5 text-indigo-500" /> Recent Activity
-            </h3>
-            <button className="text-xs font-semibold text-slate-500 hover:text-slate-900 border border-slate-200 rounded-lg px-3 py-1">View All</button>
-          </div>
-          
-          <div className="flex-1 flex flex-col justify-between">
-            {[
-              { title: "AI Interview Completed", sub: "Java Developer • Score: 88%", time: "2 hours ago", icon: BrainCircuit, color: "text-orange-500", bg: "bg-orange-50" },
-              { title: "ATS Analysis Done", sub: "Backend Developer • Score: 82%", time: "1 day ago", icon: FileText, color: "text-indigo-500", bg: "bg-indigo-50" },
-              { title: "Job Match Found", sub: "Full Stack Developer • 92% match", time: "2 days ago", icon: BriefcaseBusiness, color: "text-blue-500", bg: "bg-blue-50" },
-              { title: "Profile Updated", sub: "Basic information updated", time: "3 days ago", icon: UserCircle2, color: "text-emerald-500", bg: "bg-emerald-50" },
-            ].map((act, i) => (
-              <div key={i} className="flex items-start gap-4 p-2 rounded-xl hover:bg-slate-50 transition-colors">
-                <div className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 ${act.bg} ${act.color}`}>
-                  <act.icon className="w-5 h-5" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-bold text-slate-900 truncate">{act.title}</p>
-                  <p className="text-[11px] text-slate-500 truncate">{act.sub}</p>
-                </div>
-                <span className="text-[11px] font-medium text-slate-400 shrink-0 whitespace-nowrap">{act.time}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* Quick Access */}
-        <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6 flex flex-col">
-          <div className="flex items-center gap-2 mb-6">
-            <LayoutGrid className="w-5 h-5 text-orange-500" /> 
-            <h3 className="text-lg font-bold text-slate-900">Quick Access</h3>
-          </div>
-          
-          <div className="flex-1 flex flex-col gap-3">
-            {[
-              { title: "Progress Dashboard", sub: "View detailed analytics", view: "progress", icon: TrendingUp, color: "text-indigo-500", bg: "bg-indigo-50", border: "border-orange-400 border-dashed bg-orange-50/30" },
-              { title: "Interview History", sub: "View past interviews", view: "history", icon: Clock3, color: "text-emerald-500", bg: "bg-emerald-50", border: "border-orange-400 border-dashed bg-orange-50/30" },
-              { title: "ATS Reports", sub: "View all ATS analyses", view: "ats-score", icon: FileText, color: "text-purple-500", bg: "bg-purple-50", border: "border-slate-100" },
-              { title: "Recommendations", sub: "Get AI recommendations", view: "job-applications", icon: Sparkles, color: "text-amber-500", bg: "bg-amber-50", border: "border-slate-100" },
-            ].map((qa, i) => (
-              <button key={i} onClick={() => onNavigate(qa.view)} className={`flex items-center gap-4 p-3 rounded-xl border transition-all text-left group hover:shadow-md ${qa.border}`}>
-                <div className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 ${qa.bg} ${qa.color}`}>
-                  <qa.icon className="w-5 h-5" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-bold text-slate-900 group-hover:text-orange-600 transition-colors">{qa.title}</p>
-                  <p className="text-[11px] text-slate-500">{qa.sub}</p>
-                </div>
-                <ArrowRight className="w-4 h-4 text-slate-300 group-hover:text-orange-500" />
-              </button>
-            ))}
-          </div>
-        </div>
-
+            <div className="flex-1">
+              <h3 className="text-lg font-bold text-slate-900 mb-1 group-hover:text-orange-600 transition-colors">{action.title}</h3>
+              <p className="text-sm font-medium text-slate-500 leading-relaxed">{action.desc}</p>
+            </div>
+            <ArrowRight className="w-5 h-5 text-slate-300 group-hover:text-orange-500 transition-colors shrink-0 mt-1" />
+          </button>
+        ))}
       </div>
 
-      {/* 4. BOTTOM ROW */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {[
-          { title: "Top Job Matches", icon: BriefcaseBusiness, color: "text-red-500", content: (
-            <div className="flex items-center justify-between border border-slate-100 p-3 rounded-xl">
-              <div className="flex items-center gap-3">
-                <div className="w-8 h-8 bg-red-50 text-red-500 rounded-lg flex items-center justify-center font-bold text-xs">FS</div>
-                <div>
-                  <p className="text-sm font-bold text-slate-900">Full Stack Developer</p>
-                  <p className="text-xs text-slate-500">Tech Solutions Inc.</p>
-                </div>
-              </div>
-              <span className="text-[10px] font-bold text-emerald-600 bg-emerald-50 px-2 py-1 rounded-md">92% Match</span>
+      {/* 4. RECENT ACTIVITY */}
+      <div className="bg-white rounded-3xl border border-slate-200 shadow-sm p-8">
+        <h3 className="text-lg font-bold text-slate-900 mb-6 flex items-center gap-2">
+          <Clock3 className="w-5 h-5 text-indigo-500" /> Recent Activity
+        </h3>
+        
+        <div className="space-y-4">
+          {dashData.loading ? (
+            <p className="text-sm text-slate-500 font-medium">Loading activity...</p>
+          ) : (!dashData.recentAts && !dashData.recentJobMatch && !dashData.recentInterview) ? (
+            <div className="text-center py-6">
+              <p className="text-sm font-bold text-slate-900 mb-1">No activity yet</p>
+              <p className="text-xs font-medium text-slate-500">Start by analysing your resume or taking an AI interview.</p>
             </div>
-          )},
-          { title: "AI Recommendations", icon: Sparkles, color: "text-amber-500", content: (
-            <div className="border border-slate-100 p-3 rounded-xl border-l-4 border-l-indigo-500">
-              <div className="flex items-center justify-between mb-1">
-                <p className="text-sm font-bold text-slate-900">Improve Your React Skills</p>
-                <span className="text-[10px] font-bold text-emerald-600 bg-emerald-50 px-2 py-1 rounded-md">High Impact</span>
-              </div>
-              <p className="text-[11px] text-slate-500">Based on your profile, enhancing React skills could increase your match score.</p>
-            </div>
-          )},
-          { title: "Achievements", icon: Crown, color: "text-amber-500", content: (
-            <div className="flex items-center justify-between border border-slate-100 p-3 rounded-xl">
-              <div className="flex items-center gap-3">
-                <div className="w-8 h-8 bg-amber-50 text-amber-500 rounded-full flex items-center justify-center"><Crown className="w-4 h-4" /></div>
-                <div>
-                  <p className="text-sm font-bold text-slate-900">First Interview</p>
-                  <p className="text-xs text-slate-500">Completed your first AI Interview</p>
+          ) : (
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+              {dashData.recentAts && (
+                <div className="border border-slate-100 bg-slate-50 rounded-xl p-4 flex items-center gap-4">
+                  <div className="w-10 h-10 rounded-lg bg-indigo-100 text-indigo-600 flex items-center justify-center shrink-0">
+                    <FileText className="w-5 h-5" />
+                  </div>
+                  <div className="flex-1">
+                    <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wide">ATS Analysis</p>
+                    <p className="text-sm font-bold text-slate-900 truncate">{dashData.recentAts.resumeName || "Resume analyzed"}</p>
+                  </div>
+                  <div className="text-right">
+                    <span className="text-sm font-extrabold text-indigo-700 bg-indigo-100 px-2 py-1 rounded-md">{dashData.recentAts.score || dashData.recentAts.atsScore || 0}/100</span>
+                  </div>
                 </div>
-              </div>
-              <span className="text-[10px] font-bold text-orange-600 bg-orange-50 px-2 py-1 rounded-md">+50 XP</span>
+              )}
+              {dashData.recentJobMatch && (
+                <div className="border border-slate-100 bg-slate-50 rounded-xl p-4 flex items-center gap-4">
+                  <div className="w-10 h-10 rounded-lg bg-blue-100 text-blue-600 flex items-center justify-center shrink-0">
+                    <BriefcaseBusiness className="w-5 h-5" />
+                  </div>
+                  <div className="flex-1">
+                    <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wide">Job Match</p>
+                    <p className="text-sm font-bold text-slate-900 truncate">{dashData.recentJobMatch.resumeName ? `Matched: ${dashData.recentJobMatch.resumeName}` : "Job analyzed"}</p>
+                  </div>
+                  <div className="text-right">
+                    <span className="text-sm font-extrabold text-blue-700 bg-blue-100 px-2 py-1 rounded-md">{dashData.recentJobMatch.matchScore || dashData.recentJobMatch.score || 0}/100</span>
+                  </div>
+                </div>
+              )}
+              {dashData.recentInterview && (
+                <div className="border border-slate-100 bg-slate-50 rounded-xl p-4 flex items-center gap-4">
+                  <div className="w-10 h-10 rounded-lg bg-emerald-100 text-emerald-600 flex items-center justify-center shrink-0">
+                    <BrainCircuit className="w-5 h-5" />
+                  </div>
+                  <div className="flex-1">
+                    <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wide">AI Interview</p>
+                    <p className="text-sm font-bold text-slate-900 truncate">{dashData.recentInterview.role ? `${dashData.recentInterview.role} Role` : "Interview completed"}</p>
+                  </div>
+                  <div className="text-right">
+                    <span className="text-sm font-extrabold text-emerald-700 bg-emerald-100 px-2 py-1 rounded-md">{dashData.recentInterview.overallScore || 0}/100</span>
+                  </div>
+                </div>
+              )}
             </div>
           )}
-        ].map((block, i) => (
-          <div key={i} className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6 flex flex-col">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
-                <block.icon className={`w-4 h-4 ${block.color}`} /> {block.title}
-              </h3>
-              <button className="text-[10px] font-semibold text-slate-500 border border-slate-200 rounded px-2 py-0.5">View All</button>
-            </div>
-            {block.content}
-          </div>
-        ))}
+        </div>
       </div>
-      
     </div>
   );
 }

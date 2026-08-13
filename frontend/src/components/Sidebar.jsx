@@ -10,14 +10,17 @@ import {
   Settings2,
   HelpCircle,
   Crown,
-  Menu
+  Menu,
+  BookOpen
 } from "lucide-react";
 
 const navItemsMain = [
   { key: "dashboard", label: "Dashboard", icon: LayoutGrid },
+  { key: "readiness", label: "Placement Readiness", icon: Crown },
   { key: "ats-score", label: "ATS Analysis", icon: FileText },
   { key: "interview", label: "AI Interview", icon: BrainCircuit },
   { key: "job-applications", label: "Job Matching", icon: Sparkles },
+  { key: "recommendations", label: "Recommendations", icon: BookOpen },
 ];
 
 const navItemsSecondary = [
@@ -25,7 +28,6 @@ const navItemsSecondary = [
   { key: "history", label: "Interview History", icon: Clock3 },
   { key: "ats-history", label: "ATS History", icon: FileText },
   { key: "job-match-history", label: "Job Match History", icon: BriefcaseBusiness },
-  { key: "applications", label: "My Applications", icon: BriefcaseBusiness },
   { key: "profile", label: "Profile", icon: UserCircle2 },
   { key: "settings", label: "Settings", icon: Settings2 },
 ];
@@ -111,16 +113,7 @@ export default function Sidebar({ user, activeView, onNavigate, isVisible = true
         </div>
       </div> */}
 
-      {/* Profile Completion */}
-      <div className="px-4 pb-6">
-        <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 shadow-sm">
-          <p className="text-xs font-semibold text-slate-700 mb-1">Profile Completion</p>
-          <p className="text-xs font-bold text-indigo-600 mb-2">45% Complete</p>
-          <div className="h-1.5 w-full bg-slate-200 rounded-full overflow-hidden">
-            <div className="h-full bg-indigo-500 rounded-full w-[45%]"></div>
-          </div>
-        </div>
-      </div>
+
 
       {/* Footer / Support */}
       <div className="px-4 pb-6 border-t border-slate-100 pt-4 mt-auto">

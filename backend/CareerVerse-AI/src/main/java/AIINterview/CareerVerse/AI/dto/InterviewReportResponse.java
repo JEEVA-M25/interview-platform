@@ -23,7 +23,11 @@ public record InterviewReportResponse(
         String multipleFacesDetected,
         String phoneChecked,
         Integer tabSwitches,
-        List<ProctorLogDto> proctorLogs
+        List<ProctorLogDto> proctorLogs,
+        String overallEmotion,
+        Double averageEmotionConfidence,
+        Integer analyzedAnswers,
+        Integer totalAnswers
 ) {
     public record QuestionResultDto(
             String question,
