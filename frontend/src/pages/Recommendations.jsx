@@ -6,12 +6,13 @@ import bg1 from '../assets/bg2.jpg';
 export default function Recommendations({ user }) {
   const [studyGuide, setStudyGuide] = useState(null);
   const [generatingGuide, setGeneratingGuide] = useState(false);
+  const [days, setDays] = useState(7);
 
   const handleGenerateGuide = async () => {
     setGeneratingGuide(true);
     try {
       const token = user?.token || localStorage.getItem('token');
-      const res = await readinessApi.generateStudyGuide(token);
+      const res = await readinessApi.generateStudyGuide(token, days);
       setStudyGuide(res);
     } catch (err) {
       console.error("Failed to generate guide", err);
@@ -31,8 +32,30 @@ export default function Recommendations({ user }) {
               ✨ Personalized Study Guide
             </h2>
           <p className="text-orange-900/80 font-medium max-w-2xl mx-auto mb-8">
-            Based on your performance and recent ATS/job matching results, our AI can generate a targeted 7-day preparation plan just for you.
+            Based on your performance and recent ATS/job matching results, our AI can generate a targeted preparation plan just for you. How many days do you have?
           </p>
+          
+          <div className="max-w-md mx-auto mb-10 bg-white/50 p-6 rounded-2xl border border-orange-200/50 backdrop-blur-sm">
+            <div className="flex justify-between items-center mb-4">
+              <span className="font-semibold text-orange-950">Duration</span>
+              <span className="px-3 py-1 bg-white text-orange-600 font-extrabold rounded-lg shadow-sm border border-orange-100">
+                {days} Days
+              </span>
+            </div>
+            <input 
+              type="range" 
+              min="3" 
+              max="30" 
+              value={days} 
+              onChange={(e) => setDays(Number(e.target.value))}
+              className="w-full h-2 bg-orange-200 rounded-lg appearance-none cursor-pointer accent-orange-500"
+            />
+            <div className="flex justify-between text-xs font-medium text-orange-800/60 mt-2">
+              <span>3 Days</span>
+              <span>30 Days</span>
+            </div>
+          </div>
+
           <button
             onClick={handleGenerateGuide}
             disabled={generatingGuide}
@@ -68,7 +91,7 @@ export default function Recommendations({ user }) {
             <div className="relative z-10">
               <div className="flex items-center gap-3 mb-8 pb-4">
                 <BookOpen className="w-8 h-8 text-indigo-700 drop-shadow-md" />
-                <h3 className="text-3xl font-extrabold text-slate-900 drop-shadow-sm">Your 7-Day Preparation Plan</h3>
+                <h3 className="text-3xl font-extrabold text-slate-900 drop-shadow-sm">Your {studyGuide.days.length}-Day Preparation Plan</h3>
               </div>
 
               <div className="relative max-w-4xl border-l-2 border-dashed border-indigo-700/30 ml-4 sm:ml-8 space-y-8 py-4">

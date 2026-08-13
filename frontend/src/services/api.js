@@ -245,8 +245,8 @@ export const readinessApi = {
   getReadiness(token) {
     return getJson('/api/student/readiness', token)
   },
-  generateStudyGuide(token) {
-    return request('/api/student/readiness/study-guide', {
+  generateStudyGuide(token, days) {
+    return request(`/api/student/readiness/study-guide?days=${days}`, {
       method: 'POST',
       headers: authHeaders(token, 'application/json')
     });

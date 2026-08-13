@@ -8,6 +8,7 @@ import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
@@ -27,9 +28,11 @@ public class PlacementReadinessController {
     }
 
     @PostMapping("/study-guide")
-    public ResponseEntity<?> generateStudyGuide(Authentication authentication) {
+    public ResponseEntity<?> generateStudyGuide(
+            Authentication authentication,
+            @RequestParam(defaultValue = "7") int days) {
         try {
-            StudyGuideResponse response = placementReadinessService.generateStudyGuide(authentication.getName());
+            StudyGuideResponse response = placementReadinessService.generateStudyGuide(authentication.getName(), days);
             return ResponseEntity.ok(response);
         } catch (Exception e) {
             try {

@@ -177,47 +177,77 @@ public class PlacementReadinessService {
         return "Beginner";
     }
 
-    public StudyGuideResponse generateStudyGuide(String email) {
+    public StudyGuideResponse generateStudyGuide(String email, int days) {
+        if (days < 3 || days > 30) {
+            throw new IllegalArgumentException(
+                    "Study guide duration must be between 3 and 30 days."
+            );
+        }
+
         PlacementReadinessResponse readiness = getPlacementReadiness(email);
-            if (!readiness.hasAts() || !readiness.hasJobMatch() || !readiness.hasInterviews()) {
-                throw new IllegalStateException("Insufficient data to generate a study guide.");
-            }
+        if (!readiness.hasAts() || !readiness.hasJobMatch() || !readiness.hasInterviews()) {
+            throw new IllegalStateException("Insufficient data to generate a study guide.");
+        }
 
-            String prompt = """
-            You are a career placement assistant generating a 7-day personalized study guide for a student.
-            Return ONLY a valid JSON object matching this structure exactly:
-            {
-              "days": [
+        String prompt = """
+                You are a career placement assistant creating a personalized %d-day study guide for a student.
+
+                Return ONLY a valid JSON object matching this structure exactly:
+
                 {
-                  "day": 1,
-                  "focus": "Focus Area Title",
-                  "tasks": ["Task 1", "Task 2"]
+                  "days": [
+                    {
+                      "day": 1,
+                      "focus": "Focus Area Title",
+                      "tasks": [
+                        "Task 1",
+                        "Task 2"
+                      ]
+                    }
+                  ]
                 }
-              ]
-            }
 
-            Here is the student's data:
-            
-            CURRENT READINESS: %s/100
-            
-            INTERVIEW SCORES:
-            Overall: %s
-            Technical: %s
-            Communication: %s
-            Confidence: %s
-            
-            RECENT JOB MATCH SKILL GAPS:
-            %s
-            
-            RECENT ATS IMPROVEMENTS:
-            %s
-            
-            Based on this data, prioritize low interview scores and frequently missing skills.
-            Generate a concrete 7-day study plan with specific tasks.
-            Do not recommend unrelated topics.
-            """.formatted(
+                The "days" array MUST contain exactly %d days, numbered sequentially from 1 to %d.
+
+                STUDENT DATA:
+
+                CURRENT PLACEMENT READINESS:
+                %s/100
+
+                INTERVIEW PERFORMANCE:
+                Overall: %s
+                Technical: %s
+                Communication: %s
+                Confidence: %s
+
+                RECENT JOB MATCH SKILL GAPS:
+                %s
+
+                RECENT ATS IMPROVEMENTS / KEYWORDS:
+                %s
+
+                INSTRUCTIONS:
+
+                - Prioritize the student's weakest interview areas.
+                - Prioritize frequently occurring job skill gaps.
+                - Consider ATS improvement areas when relevant.
+                - Focus only on areas supported by the student's data.
+                - Each day should have one clear focus area.
+                - Under each day, provide 2 to 4 meaningful tasks.
+                - Keep tasks practical and slightly high-level.
+                - Do not make the plan excessively detailed.
+                - Do not recommend unrelated technologies or topics.
+                - Organize the plan in a logical learning progression.
+                - The final day should focus on revision, practice, or assessment.
+                """.formatted(
+                days,
+                days,
+                days,
                 readiness.readinessScore(),
-                readiness.interviewScore(), readiness.technicalScore(), readiness.communicationScore(), readiness.confidenceScore(),
+                readiness.interviewScore(),
+                readiness.technicalScore(),
+                readiness.communicationScore(),
+                readiness.confidenceScore(),
                 String.join(", ", readiness.skillsToWorkOn()),
                 String.join(", ", readiness.resumeImprovements())
         );
