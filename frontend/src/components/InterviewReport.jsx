@@ -138,28 +138,7 @@ function QuestionRow({ result, index }) {
 
 // ── Main ──────────────────────────────────────────────────────────────────
 function InterviewReport({ report, sessionId, token, onNewInterview, onBack }) {
-  const [downloading, setDownloading] = useState(false);
-  const [pdfError, setPdfError] = useState("");
-
-  async function handleDownloadPdf() {
-    setDownloading(true);
-    setPdfError("");
-    try {
-      const blob = await interviewApi.downloadReportPdf(sessionId, token);
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `CareerVerse-Interview-Report-${sessionId}.pdf`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
-    } catch (err) {
-      setPdfError(err.message || "Failed to download PDF.");
-    } finally {
-      setDownloading(false);
-    }
-  }
+  const btnSecondary = "rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 shadow-sm hover:bg-slate-50 transition-colors";
 
   const recommendationColor =
     report.overallScore >= 80 ? "from-emerald-500 to-green-500"
@@ -197,22 +176,6 @@ function InterviewReport({ report, sessionId, token, onNewInterview, onBack }) {
           <button key="back" type="button" className={btnSecondary} onClick={onBack}>
             ← Dashboard
           </button>,
-          <button
-            key="pdf"
-            type="button"
-            onClick={handleDownloadPdf}
-            disabled={downloading || !sessionId}
-            className={`${btnSecondary} flex items-center gap-2 disabled:opacity-50`}
-          >
-            {downloading ? (
-              <><Loader2 className="h-4 w-4 animate-spin" /> Downloading...</>
-            ) : (
-              <><Download className="h-4 w-4" /> Download PDF</>
-            )}
-          </button>,
-          ...(pdfError ? [
-            <span key="pdf-err" className="text-xs text-red-500">{pdfError}</span>
-          ] : []),
           <button key="new" type="button" className={btnPrimary} onClick={onNewInterview}>
             <span className="flex items-center gap-2">
               <RotateCcw className="h-4 w-4" /> New Interview

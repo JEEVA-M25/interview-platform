@@ -148,7 +148,8 @@ function InterviewSession({ session: initialSession, token, onFinished }) {
             delegate: "GPU"
           },
           outputFaceBlendshapes: false,
-          runningMode: "VIDEO"
+          runningMode: "VIDEO",
+          numFaces: 5
         });
         setLandmarker(lm);
         setLoadingLandmarker(false);
