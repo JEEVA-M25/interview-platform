@@ -94,7 +94,7 @@ function AtsAnalyzer({ token }) {
           {status === "loading" ? (
             <LoadingDistractor
               type="ats"
-              title="Gemini is analyzing your resume"
+              title="We are analyzing your resume"
               subtitle="Scrutinizing qualifications & formatting"
               estimatedDuration={12000}
             />

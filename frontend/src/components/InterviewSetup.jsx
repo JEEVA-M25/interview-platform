@@ -188,7 +188,7 @@ function InterviewSetup({ token, onSessionCreated, onBack }) {
           <LoadingDistractor
             type="setup"
             title="Preparing your assessment questions"
-            subtitle="Tailoring 10 personalized questions using Gemini..."
+            subtitle="Tailoring 10 personalized questions ..."
             estimatedDuration={16000}
           />
         </motion.div>
@@ -230,7 +230,7 @@ function InterviewSetup({ token, onSessionCreated, onBack }) {
                 >
                   <div className="text-center space-y-2 mb-6">
                     <h2 className="text-2xl font-extrabold text-slate-900">Choose your role & difficulty</h2>
-                    <p className="text-slate-500 font-medium">Gemini will tailor the interview specifically for this target.</p>
+                    <p className="text-slate-500 font-medium">We will tailor the interview specifically for this target.</p>
                   </div>
 
                   <div className="space-y-4">

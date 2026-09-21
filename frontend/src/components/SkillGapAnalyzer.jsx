@@ -138,7 +138,7 @@ function SkillGapAnalyzer({ token }) {
           {status === "loading" ? (
             <LoadingDistractor
               type="matching"
-              title="Gemini is analyzing the match"
+              title="We are analyzing the match"
               subtitle="Comparing resume credentials with job requirements"
               estimatedDuration={15000}
             />
