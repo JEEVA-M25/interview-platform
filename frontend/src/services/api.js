@@ -262,3 +262,15 @@ export const readinessApi = {
     });
   }
 }
+
+// ── RESUME BUILDER API ────────────────────────────────────────────────────
+
+export const resumeBuilderApi = {
+  generateSummary(payload, token) {
+    return request('/api/resume-builder/generate-summary', {
+      method: 'POST',
+      headers: authHeaders(token, 'application/json'),
+      body: JSON.stringify(payload)
+    });
+  }
+}

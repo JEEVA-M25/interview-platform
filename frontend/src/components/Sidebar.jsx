@@ -11,7 +11,8 @@ import {
   HelpCircle,
   Crown,
   Menu,
-  BookOpen
+  BookOpen,
+  FileBadge2
 } from "lucide-react";
 
 const navItemsMain = [
@@ -24,6 +25,7 @@ const navItemsMain = [
 ];
 
 const navItemsSecondary = [
+  { key: "resume-builder", label: "Resume Builder", icon: FileBadge2 },
   { key: "progress", label: "Progress Dashboard", icon: TrendingUp },
   { key: "history", label: "Interview History", icon: Clock3 },
   { key: "ats-history", label: "ATS History", icon: FileText },

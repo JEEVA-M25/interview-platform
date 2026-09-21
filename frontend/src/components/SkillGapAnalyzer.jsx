@@ -48,7 +48,7 @@ function ScoreBadge({ score }) {
   );
 }
 
-function SkillGapAnalyzer({ token }) {
+function SkillGapAnalyzer({ token, onNavigate }) {
   const [jobDescription, setJobDescription] = useState("");
   const [resumeFile, setResumeFile] = useState(null);
   const [result, setResult] = useState(null);
@@ -130,6 +130,13 @@ function SkillGapAnalyzer({ token }) {
               <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600">{error}</div>
             )}
           </form>
+
+          <div className="mt-6 pt-4 border-t border-slate-100 flex flex-col sm:flex-row gap-3 items-center justify-between text-sm">
+            <p className="text-slate-600 italic">Don't have a resume? Gotcha, we got you.</p>
+            <button onClick={() => onNavigate('resume-builder')} className="text-orange-600 hover:text-orange-700 font-bold hover:underline flex items-center gap-1">
+              Click here to create your own tailored resume &rarr;
+            </button>
+          </div>
         </section>
 
         {/* Results */}

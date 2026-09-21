@@ -17,6 +17,7 @@ import AtsHistory from "./AtsHistory.jsx";
 import JobMatchHistory from "./JobMatchHistory.jsx";
 import PlacementReadiness from "../pages/PlacementReadiness.jsx";
 import Recommendations from "../pages/Recommendations.jsx";
+import ResumeBuilder from "./ResumeBuilder.jsx";
 
 const emptyProfile = {
   fullName: "", phone: "", college: "", degree: "",
@@ -241,8 +242,8 @@ function StudentDashboard({ user, activeView, onNavigate }) {
     );
   }
 
-  if (activeView === "ats-score") return <AtsAnalyzer token={user.token} />;
-  if (activeView === "job-applications") return <SkillGapAnalyzer token={user.token} />;
+  if (activeView === "ats-score") return <AtsAnalyzer token={user.token} onNavigate={onNavigate} />;
+  if (activeView === "job-applications") return <SkillGapAnalyzer token={user.token} onNavigate={onNavigate} />;
   if (activeView === "interview") return <Interview token={user.token} onBack={() => onNavigate("dashboard")} />;
   if (activeView === "progress") return <Dashboard user={user} onNavigate={onNavigate} />;
   if (activeView === "ats-history") return <AtsHistory user={user} onNavigate={onNavigate} />;
@@ -250,6 +251,7 @@ function StudentDashboard({ user, activeView, onNavigate }) {
   if (activeView === "history") return <InterviewHistory user={user} onNavigate={onNavigate} />;
   if (activeView === "readiness") return <PlacementReadiness user={user} onNavigate={onNavigate} />;
   if (activeView === "recommendations") return <Recommendations user={user} />;
+  if (activeView === "resume-builder") return <ResumeBuilder user={user} />;
 
   if (activeView.startsWith("history/")) {
     const sessionId = activeView.split("/")[1];

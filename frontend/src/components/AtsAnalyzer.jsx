@@ -7,7 +7,7 @@ import SectionHeader from "./ui/SectionHeader.jsx";
 import { postForm } from "../services/api.js";
 import LoadingDistractor, { Spinner } from "./ui/LoadingDistractor.jsx";
 
-function AtsAnalyzer({ token }) {
+function AtsAnalyzer({ token, onNavigate }) {
   const [resumeFile, setResumeFile] = useState(null);
   const [result, setResult] = useState(null);
   const [status, setStatus] = useState("idle");
@@ -80,6 +80,13 @@ function AtsAnalyzer({ token }) {
             </button>
             {error && <p className="text-sm text-red-600">{error}</p>}
           </form>
+
+          <div className="mt-6 pt-4 border-t border-slate-100 flex flex-col sm:flex-row gap-3 items-center justify-between text-sm">
+            <p className="text-slate-600 italic">Don't have a resume? Gotcha, we got you.</p>
+            <button onClick={() => onNavigate('resume-builder')} className="text-orange-600 hover:text-orange-700 font-bold hover:underline flex items-center gap-1">
+              Click here to create your own tailored resume &rarr;
+            </button>
+          </div>
         </section>
 
         <section
