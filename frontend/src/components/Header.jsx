@@ -42,6 +42,21 @@ function Header({ user, activeView, onLogout, onNavigate, toggleSidebar, isSideb
     };
   }, []);
 
+  const [profilePic, setProfilePic] = useState(user?.profilePictureUrl);
+
+  useEffect(() => {
+    setProfilePic(user?.profilePictureUrl);
+  }, [user]);
+
+  useEffect(() => {
+    function handleStorage() {
+      const stored = JSON.parse(localStorage.getItem("careerverse_user") || "{}");
+      if (stored.profilePictureUrl) setProfilePic(stored.profilePictureUrl);
+    }
+    window.addEventListener("storage", handleStorage);
+    return () => window.removeEventListener("storage", handleStorage);
+  }, []);
+
   const profileLabel = user?.fullName || user?.email || "Profile";
   const initials = profileLabel.split(" ").map(w => w[0]).slice(0, 2).join("").toUpperCase() || "WS";
 
@@ -91,8 +106,12 @@ function Header({ user, activeView, onLogout, onNavigate, toggleSidebar, isSideb
               onClick={() => setMenuOpen(o => !o)}
               className="flex items-center gap-3 px-2 py-1.5 rounded-full hover:bg-white transition-all duration-200"
             >
-              <div className="w-10 h-10 rounded-full bg-orange-500 flex items-center justify-center text-white text-sm font-extrabold shadow-md">
-                {initials}
+              <div className="w-10 h-10 rounded-full bg-orange-500 flex items-center justify-center text-white text-sm font-extrabold shadow-md overflow-hidden">
+                {profilePic ? (
+                  <img src={profilePic} alt="Profile" className="w-full h-full object-cover" />
+                ) : (
+                  initials
+                )}
               </div>
               <div className="text-left leading-tight hidden md:block">
                 <p className="text-sm font-bold text-slate-800 max-w-[120px] truncate">{profileLabel}</p>
@@ -105,8 +124,12 @@ function Header({ user, activeView, onLogout, onNavigate, toggleSidebar, isSideb
               <div className="absolute right-0 top-full mt-2 w-56 bg-white rounded-2xl shadow-xl shadow-slate-200/60 border border-slate-100 overflow-hidden z-50">
                 <div className="px-4 py-3 bg-slate-50 border-b border-slate-100">
                   <div className="flex items-center gap-3">
-                    <div className="w-9 h-9 rounded-full bg-orange-500 flex items-center justify-center text-white text-sm font-bold">
-                      {initials}
+                    <div className="w-9 h-9 rounded-full bg-orange-500 flex items-center justify-center text-white text-sm font-bold overflow-hidden">
+                      {profilePic ? (
+                        <img src={profilePic} alt="Profile" className="w-full h-full object-cover" />
+                      ) : (
+                        initials
+                      )}
                     </div>
                     <div className="min-w-0">
                       <p className="text-sm font-bold text-slate-900 truncate">{profileLabel}</p>

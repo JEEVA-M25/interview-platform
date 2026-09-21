@@ -79,4 +79,15 @@ public class AppUser {
     public void setStudentProfile(StudentProfile studentProfile) {
         this.studentProfile = studentProfile;
     }
+
+    @Column(name = "profile_picture_s3_key")
+    private String profilePictureS3Key;
+
+    public String getProfilePictureS3Key() {
+        return profilePictureS3Key;
+    }
+
+    public void setProfilePictureS3Key(String profilePictureS3Key) {
+        this.profilePictureS3Key = profilePictureS3Key;
+    }
 }

@@ -35,4 +35,13 @@ public class StudentController {
     ) {
         return studentProfileService.updateMyProfile(authentication.getName(), request);
     }
+
+    @org.springframework.web.bind.annotation.PostMapping("/profile/picture")
+    public java.util.Map<String, String> uploadProfilePicture(
+            Authentication authentication,
+            @org.springframework.web.bind.annotation.RequestParam("file") org.springframework.web.multipart.MultipartFile file
+    ) {
+        String url = studentProfileService.uploadProfilePicture(authentication.getName(), file);
+        return java.util.Map.of("profilePictureUrl", url);
+    }
 }

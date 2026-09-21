@@ -9,6 +9,7 @@ public record StudentProfileResponse(
         String graduationYear,
         String portfolioUrl,
         String linkedinUrl,
-        String careerGoal
+        String careerGoal,
+        String profilePictureUrl
 ) {
 }

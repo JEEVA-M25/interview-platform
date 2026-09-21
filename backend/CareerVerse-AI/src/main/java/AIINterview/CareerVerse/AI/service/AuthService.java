@@ -22,15 +22,18 @@ public class AuthService {
     private final AppUserRepository appUserRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
+    private final S3StorageService s3StorageService;
 
     public AuthService(
             AppUserRepository appUserRepository,
             PasswordEncoder passwordEncoder,
-            JwtService jwtService
+            JwtService jwtService,
+            S3StorageService s3StorageService
     ) {
         this.appUserRepository = appUserRepository;
         this.passwordEncoder = passwordEncoder;
         this.jwtService = jwtService;
+        this.s3StorageService = s3StorageService;
     }
 
     public AuthResponse login(LoginRequest request) {
@@ -43,7 +46,13 @@ public class AuthService {
 
         String authority = "ROLE_" + user.getRole().name();
         String token = jwtService.generateToken(user.getEmail(), List.of(new SimpleGrantedAuthority(authority)));
-        return new AuthResponse(token, user.getRole().name(), user.getFullName(), user.getEmail());
+        
+        String profilePictureUrl = null;
+        if (user.getProfilePictureS3Key() != null) {
+            profilePictureUrl = s3StorageService.generatePresignedUrl(user.getProfilePictureS3Key());
+        }
+        
+        return new AuthResponse(token, user.getRole().name(), user.getFullName(), user.getEmail(), profilePictureUrl);
     }
 
     public StudentRegisterResponse registerStudent(StudentRegisterRequest request) {

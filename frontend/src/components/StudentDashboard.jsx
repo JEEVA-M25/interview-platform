@@ -1,14 +1,15 @@
 import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
-import { ArrowRight, BadgeCheck, BriefcaseBusiness, Clock3, Sparkles, UserCircle2, FileText, BrainCircuit, TrendingUp, LayoutGrid, Crown, Mic } from "lucide-react";
+import { ArrowRight, BadgeCheck, BriefcaseBusiness, Clock3, Sparkles, UserCircle2, FileText, BrainCircuit, TrendingUp, LayoutGrid, Crown, Mic, Camera } from "lucide-react";
 import AtsAnalyzer from "./AtsAnalyzer.jsx";
+import ImageCropper from "./ImageCropper.jsx";
 import Interview from "./Interview.jsx";
 import SkillGapAnalyzer from "./SkillGapAnalyzer.jsx";
 import DashboardCard from "./ui/DashboardCard.jsx";
 import EmptyState from "./ui/EmptyState.jsx";
 import PageHeader from "./ui/PageHeader.jsx";
 import SectionHeader from "./ui/SectionHeader.jsx";
-import { getJson, putJson, aiApi, interviewApi } from "../services/api.js";
+import { getJson, putJson, postForm, aiApi, interviewApi } from "../services/api.js";
 import Dashboard from "../pages/Dashboard.jsx";
 import InterviewHistory from "../pages/InterviewHistory.jsx";
 import InterviewDetail from "../pages/InterviewDetail.jsx";
@@ -19,7 +20,7 @@ import Recommendations from "../pages/Recommendations.jsx";
 
 const emptyProfile = {
   fullName: "", phone: "", college: "", degree: "",
-  graduationYear: "", portfolioUrl: "", linkedinUrl: "", careerGoal: "",
+  graduationYear: "", portfolioUrl: "", linkedinUrl: "", careerGoal: "", profilePictureUrl: ""
 };
 
 const inputClass = "w-full rounded-xl border border-slate-200 bg-slate-100 px-4 py-2.5 text-sm outline-none focus:border-orange-400 focus:ring-2 focus:ring-orange-200 hover:bg-white transition-colors";
@@ -31,6 +32,8 @@ function StudentDashboard({ user, activeView, onNavigate }) {
   const [profile, setProfile] = useState(emptyProfile);
   const [status, setStatus] = useState("loading");
   const [message, setMessage] = useState("");
+  const [imageToCrop, setImageToCrop] = useState(null);
+  const [isUploadingPic, setIsUploadingPic] = useState(false);
 
   const [dashData, setDashData] = useState({
     atsCount: 0,
@@ -107,6 +110,40 @@ function StudentDashboard({ user, activeView, onNavigate }) {
     setProfile(c => ({ ...c, [field]: value }));
   }
 
+  function handleImageSelect(e) {
+    if (e.target.files && e.target.files.length > 0) {
+      const reader = new FileReader();
+      reader.onload = () => setImageToCrop(reader.result);
+      reader.readAsDataURL(e.target.files[0]);
+    }
+  }
+
+  async function handleCropComplete(croppedBlob) {
+    setImageToCrop(null);
+    setIsUploadingPic(true);
+    try {
+      const formData = new FormData();
+      formData.append("file", croppedBlob, "profile.jpg");
+      
+      const data = await postForm("/api/student/profile/picture", formData, user.token);
+      
+      setProfile(p => ({ ...p, profilePictureUrl: data.profilePictureUrl }));
+      
+      // Update local storage user data so Header reflects it
+      const savedUser = JSON.parse(localStorage.getItem("careerverse_user") || "{}");
+      savedUser.profilePictureUrl = data.profilePictureUrl;
+      localStorage.setItem("careerverse_user", JSON.stringify(savedUser));
+      // Dispatch storage event so other components (Header) can update
+      window.dispatchEvent(new Event("storage"));
+
+      setMessage("Profile picture updated!");
+    } catch(err) {
+      setMessage(err.message);
+    } finally {
+      setIsUploadingPic(false);
+    }
+  }
+
   if (activeView === "profile") {
     return (
       <div className="space-y-6">
@@ -119,6 +156,24 @@ function StudentDashboard({ user, activeView, onNavigate }) {
         <motion.section initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} className={card}>
           <SectionHeader eyebrow="Student details" title="Edit profile" description="Your profile powers tailored recommendations and applications." />
           <form className="mt-4 grid gap-4 md:grid-cols-2" onSubmit={handleSubmit}>
+            <div className="md:col-span-2 flex flex-col items-center gap-4 py-4">
+              <div className="relative group cursor-pointer">
+                <div className="w-24 h-24 rounded-full overflow-hidden bg-slate-200 border-4 border-white shadow-md">
+                  {profile.profilePictureUrl ? (
+                    <img src={profile.profilePictureUrl} alt="Profile" className="w-full h-full object-cover" />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center text-slate-400">
+                      <UserCircle2 size={48} />
+                    </div>
+                  )}
+                </div>
+                <label className="absolute inset-0 flex items-center justify-center bg-black/50 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer">
+                  <Camera size={24} />
+                  <input type="file" accept="image/*" className="hidden" onChange={handleImageSelect} />
+                </label>
+              </div>
+              <p className="text-sm text-slate-500 font-medium">Click to update picture {isUploadingPic && "(Uploading...)"}</p>
+            </div>
             {[
               { label: "Full name", field: "fullName", required: true },
               { label: "Phone", field: "phone" },
@@ -148,6 +203,14 @@ function StudentDashboard({ user, activeView, onNavigate }) {
             </div>
           </form>
         </motion.section>
+        
+        {imageToCrop && (
+          <ImageCropper
+            imageSrc={imageToCrop}
+            onCancel={() => setImageToCrop(null)}
+            onCropComplete={handleCropComplete}
+          />
+        )}
       </div>
     );
   }

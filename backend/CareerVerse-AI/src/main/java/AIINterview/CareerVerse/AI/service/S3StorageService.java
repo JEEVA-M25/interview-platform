@@ -72,6 +72,25 @@ public class S3StorageService {
         return key;
     }
 
+    public String uploadProfilePicture(MultipartFile file, Long userId) throws IOException {
+        String originalFilename = file.getOriginalFilename();
+        String extension = originalFilename != null && originalFilename.contains(".")
+                ? originalFilename.substring(originalFilename.lastIndexOf("."))
+                : ".jpg";
+
+        String key = "profiles/user_" + userId + "_" + UUID.randomUUID().toString() + extension;
+
+        PutObjectRequest putObjectRequest = PutObjectRequest.builder()
+                .bucket(bucketName)
+                .key(key)
+                .contentType(file.getContentType())
+                .build();
+
+        s3Client.putObject(putObjectRequest, RequestBody.fromInputStream(file.getInputStream(), file.getSize()));
+
+        return key;
+    }
+
     public String generatePresignedUrl(String key) {
         if (key == null || key.isBlank()) return null;
         
