@@ -16,7 +16,7 @@ app = FastAPI(title="Speech Emotion Recognition Service")
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
-    allow_credentials=True,
+    allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -127,4 +127,5 @@ async def predict(file: UploadFile = File(...)):
     }
 
 if __name__ == "__main__":
-    uvicorn.run("app:app", host="0.0.0.0", port=8001, reload=True)
+    port = int(os.environ.get("PORT", "8001"))
+    uvicorn.run("app:app", host="0.0.0.0", port=port, reload=False)

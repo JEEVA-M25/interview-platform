@@ -2,6 +2,7 @@ package AIINterview.CareerVerse.AI.service;
 
 import AIINterview.CareerVerse.AI.model.InterviewAnswer;
 import AIINterview.CareerVerse.AI.repository.InterviewAnswerRepository;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.ByteArrayResource;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
@@ -26,9 +27,14 @@ public class EmotionAnalysisService {
     private static final Logger logger = LoggerFactory.getLogger(EmotionAnalysisService.class);
     private final InterviewAnswerRepository answerRepository;
     private final RestTemplate restTemplate;
+    private final String emotionServiceUrl;
 
-    public EmotionAnalysisService(InterviewAnswerRepository answerRepository) {
+    public EmotionAnalysisService(
+            InterviewAnswerRepository answerRepository,
+            @Value("${emotion.service.url}") String emotionServiceUrl
+    ) {
         this.answerRepository = answerRepository;
+        this.emotionServiceUrl = emotionServiceUrl.replaceAll("/+$", "");
         
         // Configure timeout for the RestTemplate to not block indefinitely
         SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();
@@ -69,7 +75,7 @@ public class EmotionAnalysisService {
 
                 try {
                     ResponseEntity<Map> response = restTemplate.postForEntity(
-                            "http://localhost:8001/predict",
+                            this.emotionServiceUrl + "/predict",
                             requestEntity,
                             Map.class
                     );

@@ -1,12 +1,22 @@
 # React
 frontend/node_modules/
 frontend/dist/
+frontend/.env
+frontend/.env.*
+!frontend/.env.example
 
 # Spring Boot
 backend/target/
+backend/CareerVerse-AI/target/
 backend/.mvn/
 *.class
 *.log
+
+# Python
+emotion-service/venv/
+emotion-service/.cache/
+emotion-service/__pycache__/
+emotion-service/**/*.pyc
 
 # IDE
 .vscode/
@@ -14,4 +24,6 @@ backend/.mvn/
 
 # Secrets
 .env
-backend/src/main/resources/application.properties
+*.env
+!.env.example
+backend/CareerVerse-AI/src/main/resources/application.properties
